@@ -1,0 +1,104 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="最近闲来无事看到了一个博主写的《AI是怎么回事》 把ai层底到底是如何运作的讲得挺容易懂的，有兴趣的可以看看，网址：https://wmyskxz.cn/wiki/whats_ai/ …"><meta name="theme-color" content="#192d42"><meta property="og:title" content="ai层底逻辑"><meta property="og:description" content="最近闲来无事看到了一个博主写的《AI是怎么回事》 把ai层底到底是如何运作的讲得挺容易懂的，有兴趣的可以看看，网址：https://wmyskxz.cn/wiki/whats_ai/ …"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><title>ai层底逻辑 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ClkzoHmz.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/" aria-current="page">随想录</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/essays/">阿雷的随想录</a><span>/</span><span>正文</span></nav><div class="reading-layout essay-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>随想录目录</span><span class="directory-count">21 篇</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll" aria-label="随笔目录"><ol class="essay-directory-list"><li><a href="/article-library-site/essays/the-recorder/"><span>01</span><span>录音机</span></a></li><li><a href="/article-library-site/essays/the-nineteenth-note/"><span>02</span><span>第十九张纸条</span></a></li><li><a href="/article-library-site/essays/rain-in-shenzhen/"><span>03</span><span>深圳在下雨</span></a></li><li><a href="/article-library-site/essays/a-little-slower/"><span>04</span><span>慢一点，才是人生风景</span></a></li><li><a href="/article-library-site/essays/a-schoolday-crush/"><span>05</span><span>初中的黑凤梨</span></a></li><li><a href="/article-library-site/essays/girl-on-a-bicycle/"><span>06</span><span>骑单车的女孩</span></a></li><li><a href="/article-library-site/essays/an-expiration-date/"><span>07</span><span>一个人的保质期</span></a></li><li><a href="/article-library-site/essays/grown-up-affection/"><span>08</span><span>成年人的喜欢</span></a></li><li><a href="/article-library-site/essays/a-moment-on-the-metro/"><span>09</span><span>地铁心动瞬间</span></a></li><li><a href="/article-library-site/essays/love-on-the-metro/"><span>10</span><span>地铁爱情狗粮</span></a></li><li><a href="/article-library-site/essays/moms-tech-support/"><span>11</span><span>妈妈的远程技术支持工单</span></a></li><li><a href="/article-library-site/essays/repairing-a-car/"><span>12</span><span>修车</span></a></li><li><a href="/article-library-site/essays/a-turn-in-life/"><span>13</span><span>命运的抉择</span></a></li><li><a href="/article-library-site/essays/why-parents-want-a-wedding/"><span>14</span><span>父母执着于让儿女结婚的底层逻辑</span></a></li><li><a href="/article-library-site/essays/the-wealth-gap/"><span>15</span><span>贫富差距</span></a></li><li><a href="/article-library-site/essays/comfort-and-distraction/"><span>16</span><span>奶头乐</span></a></li><li><a href="/article-library-site/essays/learning-to-be-anxious/"><span>17</span><span>我们是如何被互联网教会焦虑的</span></a></li><li><a href="/article-library-site/essays/520-debugger/"><span>18</span><span>520Debugger</span></a></li><li><a href="/article-library-site/essays/thinking-about-ai/" aria-current="page"><span>19</span><span>ai层底逻辑</span></a></li><li><a href="/article-library-site/essays/ai-and-independent-thinking/"><span>20</span><span>AI提效</span></a></li><li><a href="/article-library-site/essays/thoughts-on-ai/"><span>21</span><span>AI的思考</span></a></li></ol></nav><a href="/article-library-site/essays/" class="directory-return">返回作品集</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 慢慢读，不赶时间。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">ESSAY 19 / 代码之外</p><h1>ai层底逻辑</h1><div class="article-meta"><span>阿雷</span><span>1,373 字</span><span>约 4 分钟</span></div></header><div class="prose"><p>最近闲来无事看到了一个博主写的《AI是怎么回事》</p>
+<p>把ai层底到底是如何运作的讲得挺容易懂的，有兴趣的可以看看，网址：<a href="https://wmyskxz.cn/wiki/whats_ai/">https://wmyskxz.cn/wiki/whats_ai/</a></p>
+<p>输入一句话后，大模型内部到底发生了什么？</p>
+<p>AI 本质上可以理解成：
+它会根据你前面输入的内容，一点一点去预测下一个最可能出现的字、词或句子。</p>
+<p>在这个过程中，文字不会直接按“字面意思”让计算机处理，而是会先被转换成一组数字。
+这组数字不是简单编号，而更像是文字在计算机里的“数学表示”。
+意思相近的词，它们对应的数字表示通常也会比较接近。</p>
+<p>模型会结合这些数字表示，再根据上下文去判断：
+下一步最有可能出现什么内容。
+所以它看起来就像是在和人对话、回答问题、写文章，其实底层是在不断做“预测下一个内容”的计算。</p>
+<p>大模型并不是把大量文本都先算成向量存起来，等你提问时再直接拿来匹配。</p>
+<p>大模型在训练阶段，会读取海量文本，并通过反复训练，把语言规律、词和词之间的关系、句子的组织方式等，慢慢“压缩”到模型内部的大量参数里。</p>
+<p>我们平时说一个模型有多少参数，指的就是这个模型内部有多少个可调节的数字。
+这些参数不是“存好的原文”或者“现成句子库”，而更像是模型通过大量学习后积累下来的经验。</p>
+<p>其实 AI 大模型，说白了就是一个特别厉害的“接话高手”。</p>
+<h2>做菜比喻版</h2>
+<h3>1. 先看过无数菜谱</h3>
+<p>大模型在训练前，就像一个厨师先读了：</p>
+<ul>
+<li>海量菜谱</li>
+<li>各种做法</li>
+<li>不同菜系搭配</li>
+<li>大量别人做菜的经验</li>
+</ul>
+<p>所以它慢慢学会了：</p>
+<ul>
+<li>什么食材常一起出现</li>
+<li>什么调料通常配什么菜</li>
+<li>下一步一般该放什么</li>
+</ul>
+<p>这就对应到 AI 里：
+<strong>它通过大量文本，学习“前面有这些内容，后面大概率该接什么”。</strong></p>
+<hr />
+<h3>2. 把“食材”先处理好</h3>
+<p>做菜前，厨师不会直接把一整桌原材料乱下锅，
+而是要先切菜、分类、备料。</p>
+<p>AI 也是一样。
+它会先把一句话拆成小块，再转成计算机能处理的数字。</p>
+<p>比如一句话，
+就像把它拆成：</p>
+<ul>
+<li>主食材</li>
+<li>配菜</li>
+<li>调料</li>
+<li>顺序</li>
+</ul>
+<p>这样模型才能“下锅处理”。</p>
+<hr />
+<h3>3. 注意力机制 = 厨师知道现在该盯哪口锅</h3>
+<p>做菜时，厉害的厨师不会每样都平均关注，
+而是会看当前最关键的部分：</p>
+<ul>
+<li>炒菜时盯火候</li>
+<li>炖汤时看时间</li>
+<li>调味时尝味道</li>
+<li>出锅时看摆盘</li>
+</ul>
+<p>AI 里的<strong>注意力机制</strong>也差不多。
+它在生成一句话时，会动态判断：</p>
+<blockquote>
+<p>前面这么多内容里，当前最该重点看哪一部分？</p>
+</blockquote>
+<p>这就像厨师在关键时刻知道该注意盐、火、油温还是食材本身。</p>
+<hr />
+<h3>4. 训练 = 反复试菜</h3>
+<p>训练模型就像训练厨师：</p>
+<ol>
+<li>先给他一部分菜谱</li>
+<li>故意把下一步遮住</li>
+<li>让他猜“下一步该怎么做”</li>
+<li>猜错了就纠正</li>
+<li>一次次重复</li>
+</ol>
+<p>久而久之，这个厨师就越来越会“接下一步”。</p>
+<p>AI 也是这样，
+它其实一直在练一种能力：</p>
+<p><strong>根据前面的内容，猜后面最合理的内容。</strong></p>
+<hr />
+<h3>5. 参数 = 厨师脑子里的经验</h3>
+<p>厨师做菜久了，脑子里会形成很多经验：</p>
+<ul>
+<li>这个菜要大火快炒</li>
+<li>那个汤要小火慢炖</li>
+<li>这个味型要先放蒜再放辣椒</li>
+</ul>
+<p>AI 里的<strong>参数</strong>，就相当于这些经验。
+参数越多，通常表示它记住和表达复杂规律的能力越强。</p>
+<hr />
+<h3>6. 为什么它看起来像“真会做菜”？</h3>
+<p>因为它学过太多“菜谱和做法”，
+所以你给它一个问题，它就能像老厨师一样接着往下做：</p>
+<ul>
+<li>你让它写文章，像是在“出一道菜”</li>
+<li>你让它翻译，像是在“换一种做法”</li>
+<li>你让它写代码，像是在“按步骤做一道技术菜”</li>
+</ul>
+<p>但本质上，它不是自己真的在“吃”和“品尝”，
+而是非常擅长根据经验，给出<strong>最像正确做法的下一步</strong>。</p>
+<hr />
+<h2>一句话总结</h2>
+<p><strong>AI 大模型就像一个看过无数菜谱、反复试菜很多次的超级厨师，本质能力是根据现有食材和步骤，判断下一步最合理该怎么做。</strong></p>
+<p><img src="/article-library-site/media/7c67684006f6f0f0ab.webp" alt="ai层底逻辑配图" loading="lazy" decoding="async" width="1440" height="809" /></p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="相邻文章"><a href="/article-library-site/essays/520-debugger/"><span>上一篇</span><strong>520Debugger</strong></a><a href="/article-library-site/essays/ai-and-independent-thinking/" class="next-article"><span>下一篇</span><strong>AI提效</strong></a></nav></div></div></div><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>
