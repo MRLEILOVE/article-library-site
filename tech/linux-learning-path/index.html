@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="一条面向 Java 后端开发者的 Linux 路线：命令行、日志、权限、网络和服务部署。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="Linux 学习路径：从命令行到部署一个服务"><meta property="og:description" content="一条面向 Java 后端开发者的 Linux 路线：命令行、日志、权限、网络和服务部署。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>Linux 学习路径：从命令行到部署一个服务 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>部署与运维</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">7 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">1. 先准备一台可以反复折腾的练习机</a><a href="#section-2" style="--indent:0">2. 第一周：文件操作和文本查看</a><a href="#section-3" style="--indent:0">3. 第二周：权限、进程和资源</a><a href="#section-4" style="--indent:0">4. 第三周：网络与服务排错</a><a href="#section-5" style="--indent:0">5. 第四周：部署一个自己的 Java 服务</a><a href="#section-6" style="--indent:0">6. 用一次故障演练检查自己是否学会</a><a href="#section-7" style="--indent:0">7. 基础过关之后，再补哪些内容</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 部署与运维</p><h1 id="article-title">Linux 学习路径：从命令行到部署一个服务</h1><div class="article-meta"><span>阿雷整理</span><span>本次新增整理</span><span>约 7 分钟</span></div><p class="tech-dates">整理于 2026-10-05</p></header><div class="prose technical-prose"><blockquote>
+<p>本次新增整理 · 2026-10-05。原笔记只有标题，这篇重新整理了一条面向 Java 后端开发者的实践路线。</p>
+</blockquote>
+<p>刚开始学 Linux，容易陷入一个误区：先找一份命令大全，从第一条背到最后一条。背的时候觉得会了，真正连上服务器，还是不知道从哪里下手。</p>
+<p>我的建议是先定一个小目标：<strong>把自己的一个服务部署起来，能看日志、查端口、定位失败原因，再把它停下来。</strong> 命令围绕这个目标去学，会更容易记住。</p>
+<h2 id="section-1">1. 先准备一台可以反复折腾的练习机</h2>
+<p>选一个维护中的 Linux 发行版，在本地虚拟机里安装，给自己建一个普通用户。Windows 也可以从 WSL 开始熟悉命令行；涉及开机启动、网络和防火墙的练习，最好再用完整虚拟机核对一次。</p>
+<p>先认识三个目录：<code>~</code> 是当前用户的主目录，<code>/etc</code> 通常存放系统配置，<code>/var/log</code> 常用于保存日志。不要一上来就修改系统目录，自己的实验统一放到 <code>~/linux-lab</code>。</p>
+<div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">mkdir</span><span style="color:#005CC5"> -p</span><span style="color:#032F62"> ~/linux-lab/logs</span></span>
+<span class="line"><span style="color:#005CC5">cd</span><span style="color:#032F62"> ~/linux-lab</span></span>
+<span class="line"><span style="color:#005CC5">pwd</span></span>
+<span class="line"><span style="color:#6F42C1">whoami</span></span>
+<span class="line"><span style="color:#6F42C1">cat</span><span style="color:#032F62"> /etc/os-release</span></span></code></pre></div>
+<p>检查点：关掉终端再打开，能独立回到这个目录，并说明自己使用的是哪个发行版。<a href="https://ubuntu.com/tutorials/command-line-for-beginners">Ubuntu 的命令行入门教程</a>可以配合练习。</p>
+<h2 id="section-2">2. 第一周：文件操作和文本查看</h2>
+<p>先熟悉 <code>pwd</code>、<code>ls</code>、<code>cd</code>、<code>mkdir</code>、<code>cp</code>、<code>mv</code>，再学习 <code>cat</code>、<code>less</code>、<code>head</code>、<code>tail</code> 和 <code>grep</code>。重点是弄懂绝对路径、相对路径，以及引号的作用。</p>
+<p>用一份自己生成的日志练习：</p>
+<div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#005CC5">cd</span><span style="color:#032F62"> ~/linux-lab</span></span>
+<span class="line"><span style="color:#005CC5">printf</span><span style="color:#032F62"> 'INFO application started\nERROR database timeout\nINFO request finished\n'</span><span style="color:#D73A49"> &gt;</span><span style="color:#032F62"> logs/app.log</span></span>
+<span class="line"><span style="color:#6F42C1">cat</span><span style="color:#032F62"> logs/app.log</span></span>
+<span class="line"><span style="color:#6F42C1">grep</span><span style="color:#005CC5"> -n</span><span style="color:#032F62"> 'ERROR'</span><span style="color:#032F62"> logs/app.log</span></span>
+<span class="line"><span style="color:#6F42C1">tail</span><span style="color:#005CC5"> -n</span><span style="color:#005CC5"> 20</span><span style="color:#032F62"> logs/app.log</span></span>
+<span class="line"><span style="color:#6F42C1">less</span><span style="color:#032F62"> logs/app.log</span></span></code></pre></div>
+<p>在 <code>less</code> 中用 <code>/ERROR</code> 搜索，按 <code>n</code> 跳到下一处，按 <code>q</code> 退出。这里的 <code>&gt;</code> 会覆盖同名文件，<code>&gt;&gt;</code> 才是追加，写日志和写配置之前要分清楚。</p>
+<p>再试着用 Vim 修改一个练习文件：<code>i</code> 进入插入模式，<code>Esc</code> 回到普通模式，<code>:wq</code> 保存退出，<code>:q!</code> 放弃本次修改。先做到能改、能保存、能退出，再慢慢学移动和批量编辑。</p>
+<p>检查点：不依赖图形界面，找到日志中的错误行，并把前后几行一起读懂。可以继续看本站的 <a href="/article-library-site/tech/vim-log-reading/">Vim 查看日志</a>。</p>
+<h2 id="section-3">3. 第二周：权限、进程和资源</h2>
+<p>“文件明明存在，为什么运行不了？”“端口明明写在配置里，为什么访问不到？”这类问题通常要从权限和进程查起。</p>
+<table>
+<thead>
+<tr>
+<th>要解决的问题</th>
+<th>先学的工具</th>
+<th>需要看懂什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>谁可以读写文件</td>
+<td><code>ls -l</code>、<code>id</code>、<code>chmod</code></td>
+<td>所有者、用户组、读写执行权限</td>
+</tr>
+<tr>
+<td>哪个进程在运行</td>
+<td><code>ps</code>、<code>top</code></td>
+<td>PID、启动命令、CPU 和内存占用</td>
+</tr>
+<tr>
+<td>磁盘还剩多少</td>
+<td><code>df -h</code>、<code>du -sh</code></td>
+<td>文件系统容量与目录占用的区别</td>
+</tr>
+<tr>
+<td>程序监听了什么</td>
+<td><code>ss -lntp</code></td>
+<td>监听地址、端口、关联进程</td>
+</tr>
+</tbody></table>
+<div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">id</span></span>
+<span class="line"><span style="color:#6F42C1">ls</span><span style="color:#005CC5"> -l</span><span style="color:#032F62"> ~/linux-lab/logs/app.log</span></span>
+<span class="line"><span style="color:#6F42C1">ps</span><span style="color:#005CC5"> -ef</span></span>
+<span class="line"><span style="color:#6F42C1">df</span><span style="color:#005CC5"> -h</span></span>
+<span class="line"><span style="color:#6F42C1">du</span><span style="color:#005CC5"> -sh</span><span style="color:#032F62"> ~/linux-lab</span></span>
+<span class="line"><span style="color:#6F42C1">ss</span><span style="color:#005CC5"> -lntp</span></span></code></pre></div>
+<p>查看别的用户启动的进程信息可能需要相应权限。遇到权限问题，先检查路径和所有者，再决定是否需要 <code>sudo</code>，不要用 <code>chmod -R 777</code> 作为通用修复方式。</p>
+<p>练习结束时，尝试找到一个自己启动的测试进程，确认 PID 后用 <code>kill -TERM PID</code> 请求正常退出。理解“请求退出”和“强制终止”的区别，比记住 <code>kill -9</code> 更有用。</p>
+<h2 id="section-4">4. 第三周：网络与服务排错</h2>
+<p>把访问链路拆开看：<strong>客户端 → 网络与防火墙 → 监听端口 → 应用 → 数据库等依赖</strong>。浏览器打不开页面，并不一定是应用代码的问题。</p>
+<p>假设应用应该监听本机的 8080 端口：</p>
+<div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">ip</span><span style="color:#032F62"> addr</span></span>
+<span class="line"><span style="color:#6F42C1">ip</span><span style="color:#032F62"> route</span></span>
+<span class="line"><span style="color:#6F42C1">ss</span><span style="color:#005CC5"> -lntp</span></span>
+<span class="line"><span style="color:#6F42C1">curl</span><span style="color:#005CC5"> -v</span><span style="color:#005CC5"> --connect-timeout</span><span style="color:#005CC5"> 3</span><span style="color:#032F62"> http://127.0.0.1:8080/</span></span></code></pre></div>
+<p>按顺序判断：</p>
+<ol>
+<li>没有监听端口：先看启动日志，确认进程有没有退出。</li>
+<li>本机能访问、其他机器不能访问：检查监听地址、主机防火墙和云平台安全组。</li>
+<li>收到 HTTP 404：说明已经连到 HTTP 服务，要继续核对路径和路由。</li>
+<li>收到 HTTP 500：回到应用日志，找出本次请求对应的异常。</li>
+</ol>
+<p>配置防火墙时，先确定发行版使用的是哪套工具。本站的 <a href="/article-library-site/tech/linux-firewall-ports/">firewalld 端口笔记</a>只适用于使用 firewalld 的机器；<code>ss</code> 显示监听并不能证明防火墙已放行。</p>
+<h2 id="section-5">5. 第四周：部署一个自己的 Java 服务</h2>
+<p>选择一个不含业务数据的小项目，打包成 Jar，复制到练习机。准备一个明确的健康检查接口，先以前台方式启动，直接观察日志。</p>
+<div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">java</span><span style="color:#005CC5"> -version</span></span>
+<span class="line"><span style="color:#6F42C1">java</span><span style="color:#005CC5"> -jar</span><span style="color:#032F62"> demo.jar</span><span style="color:#005CC5"> --server.port=8080</span></span></code></pre></div>
+<p>在另一个终端用 <code>curl</code> 请求你实际实现的接口。确认启动、访问和停止都正常之后，再学习 systemd 的服务管理。</p>
+<p>在以 systemd 管理服务的机器上，下面几条命令分别用于查看状态、查看近期日志和跟踪新日志。<code>demo.service</code> 是你自己配置的服务名，系统不会自动生成这个服务。</p>
+<div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">systemctl</span><span style="color:#032F62"> status</span><span style="color:#032F62"> demo.service</span></span>
+<span class="line"><span style="color:#6F42C1">journalctl</span><span style="color:#005CC5"> -u</span><span style="color:#032F62"> demo.service</span><span style="color:#005CC5"> -n</span><span style="color:#005CC5"> 100</span><span style="color:#005CC5"> --no-pager</span></span>
+<span class="line"><span style="color:#6F42C1">journalctl</span><span style="color:#005CC5"> -u</span><span style="color:#032F62"> demo.service</span><span style="color:#005CC5"> -f</span></span></code></pre></div>
+<p>配置服务时要明确运行用户、工作目录、Java 的绝对路径和重启策略。先学习 <a href="https://www.freedesktop.org/software/systemd/man/latest/systemctl.html">systemctl</a> 与 <a href="https://www.freedesktop.org/software/systemd/man/latest/journalctl.html">journalctl</a> 的手册，再做自动启动；密码与密钥通过受控配置提供，不要提交到代码仓库。</p>
+<p>最后用 Nginx 把请求转发到应用，理解“域名与入口端口”和“后端监听端口”的区别。可以从本站 <a href="/article-library-site/tech/nginx-guide/">Nginx 笔记</a>中的反向代理部分开始。</p>
+<h2 id="section-6">6. 用一次故障演练检查自己是否学会</h2>
+<p>只在练习机上做下面三个实验，每次只改变一个条件：</p>
+<ul>
+<li>把启动端口换掉，观察旧地址和新地址的响应。</li>
+<li>把配置文件路径写错，从启动日志里定位具体错误。</li>
+<li>正常停止服务，再通过进程、端口、日志三种方式确认状态。</li>
+</ul>
+<p>每个问题留下四行记录：现象、证据、原因、修复步骤。不要只记“重启好了”，还要说清楚重启前看到了什么。</p>
+<h2 id="section-7">7. 基础过关之后，再补哪些内容</h2>
+<p>能独立部署和排错以后，再补 Shell 脚本、管道、重定向、定时任务、日志轮转、SSH 密钥、备份与恢复。然后根据工作需要进入容器、监控或性能分析，不用同时铺开所有方向。</p>
+<p>给自己留一个最终作业：把练习服务从一台全新的虚拟机部署起来，写出别人也能复现的操作记录，并演示一次恢复过程。如果能做到这一步，Linux 就已经从“命令列表”变成了能解决问题的工具。</p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/skywalking-notes/"><span>同分类 · 上一篇</span><strong>SkyWalking 学习资料</strong></a><a href="/article-library-site/tech/nginx-guide/" class="next-article"><span>同分类 · 下一篇</span><strong>Nginx 配置与实践笔记</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

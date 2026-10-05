@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="记录 GraalVM JDK 17 与 Spring Boot 3.1 的安装、原生编译和运行过程。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="GraalVM 入门教程"><meta property="og:description" content="记录 GraalVM JDK 17 与 Spring Boot 3.1 的安装、原生编译和运行过程。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>GraalVM 入门教程 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">25 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">GraalVM是什么</a><a href="#section-2" style="--indent:0">几个名词介绍</a><a href="#section-3" style="--indent:1">native-image</a><a href="#section-4" style="--indent:1">gu</a><a href="#section-5" style="--indent:0">基础环境搭建</a><a href="#section-6" style="--indent:1">linux</a><a href="#section-7" style="--indent:2">下载GraalVM</a><a href="#section-8" style="--indent:2">配置环境变量</a><a href="#section-9" style="--indent:2">下载安装AOT编译器 native-image</a><a href="#section-10" style="--indent:1">借助 gu 来安装 native-image</a><a href="#section-11" style="--indent:1">借助 gu 来安装 native-image</a><a href="#section-12" style="--indent:2">安装gcc、glibc-devel 与 zlib-devel</a><a href="#section-13" style="--indent:2">下载maven并配置环境变量</a><a href="#section-14" style="--indent:1">windows</a><a href="#section-15" style="--indent:2">下载GraalVM</a><a href="#section-16" style="--indent:2">配置环境变量</a><a href="#section-17" style="--indent:2">下载安装AOT编译器 native-image</a><a href="#section-18" style="--indent:2">下载配置windows sdk和msvc</a><a href="#section-19" style="--indent:2">下载maven并配置环境变量</a><a href="#section-20" style="--indent:0">创建、构建、运行SpringBoot3的项目</a><a href="#section-21" style="--indent:1">windows</a><a href="#section-22" style="--indent:1">Linux</a><a href="#section-23" style="--indent:0">传统jar包和原生镜像速度对比</a><a href="#section-24" style="--indent:1">windows</a><a href="#section-25" style="--indent:1">Linux</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">GraalVM 入门教程</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 7 分钟</span></div><p class="tech-dates">原笔记 2023-10-20<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>记录 GraalVM JDK 17 与 Spring Boot 3.1 的安装、原生编译和运行过程。</p>
+<blockquote>
+<p>版本说明：本文记录的是 GraalVM JDK 17、Spring Boot 3.1 和当时的 Native Image 工具链。安装方式、插件和图中的界面均对应原实验环境。</p>
+</blockquote>
+<p><a id="pOuBk"></a></p>
+<h2 id="section-1">GraalVM是什么</h2>
+<p>GraalVM是一个高性能、云原生、支持多种语言的虚拟机。</p>
+<p>GraalVM 提供了一个名为 “Native Image” 的工具，它能够将 Java 应用程序预编译成本机可执行文件。这种方法的优点是启动速度快，内存占用少，因为程序运行时不需要 JVM 和类加载。</p>
+<p>然而这种方式也存在一些弊端，如预编译的 GraalVM Native Image 相比于在 HotSpot JVM 上运行的相同程序，它没有一个先进的即时编译器 (JIT) ，因此就不能在运行时分析和优化代码，无法利用这些运行时优化，因此在性能表现上可能会有所降低。</p>
+<blockquote>
+<p>官网：<a href="https://www.graalvm.org/">https://www.graalvm.org/</a></p>
+</blockquote>
+<p><a id="zzD7k"></a></p>
+<h2 id="section-2">几个名词介绍</h2>
+<p><a id="ausK8"></a></p>
+<h3 id="section-3">native-image</h3>
+<p>native-image 是一个用于将 Java 程序编译为本地可执行文件的工具。它是 GraalVM 的一部分，GraalVM 是一个高性能的通用虚拟机，支持多种语言。它可以将 Java 应用程序预编译为本机可执行文件，这样生成的文件可以直接运行，无需 JVM 或者任何其他的运行时环境。</p>
+<p>不同平台相关依赖不同：</p>
+<p><img src="/article-library-site/media/70cf189d5ce844a84f.webp" alt="GraalVM入门教程配图 1" loading="lazy" decoding="async" /></p>
+<p><a id="s8Ogp"></a></p>
+<h3 id="section-4">gu</h3>
+<p>gu 是 GraalVM 的组件安装器 (GraalVM Updater)，你可以使用 gu 来安装、列出和卸载 GraalVM 中的各种组件。</p>
+<p><a id="YHEee"></a></p>
+<h2 id="section-5">基础环境搭建</h2>
+<p><a id="ZO933"></a></p>
+<h3 id="section-6">linux</h3>
+<p>环境：</p>
+<ul>
+<li>centos7</li>
+<li>jdk17</li>
+<li>maven 3.6.1</li>
+<li>spring-boot3.1.4</li>
+</ul>
+<p><a id="N24pi"></a></p>
+<h4 id="section-7">下载GraalVM</h4>
+<p>下载GraalVM for JDK 17 Community 17.0.8：</p>
+<p><a href="https://github.com/graalvm/graalvm-ce-builds/releases/tag/jdk-17.0.8">https://github.com/graalvm/graalvm-ce-builds/releases/tag/jdk-17.0.8</a></p>
+<p><img src="/article-library-site/media/322dc38ff134026a2b.webp" alt="GraalVM入门教程配图 2" loading="lazy" decoding="async" /></p>
+<p><a id="scP4t"></a></p>
+<h4 id="section-8">配置环境变量</h4>
+<p>下载完传到Linux服务器，解压，配置环境变量</p>
+<p>配置jdk环境变量请参考：<a href="https://blog.csdn.net/qq_34845394/article/details/90674658">https://blog.csdn.net/qq_34845394/article/details/90674658</a></p>
+<p>验证：</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">java</span><span style="color:#005CC5"> -version</span></span></code></pre></div>
+<p><img src="/article-library-site/media/ad6b0582137da3af8a.webp" alt="GraalVM入门教程配图 3" loading="lazy" decoding="async" /></p>
+<p><a id="U1b0s"></a></p>
+<h4 id="section-9">下载安装AOT编译器 native-image</h4>
+<ol>
+<li>命令操作【离线方式】</li>
+</ol>
+<h3 id="section-10">借助 gu 来安装 native-image</h3>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">gu</span><span style="color:#032F62"> install</span><span style="color:#005CC5"> --file</span><span style="color:#032F62"> native-image-installable-svm-java17-windows-amd64-22.1.0.jar</span></span></code></pre></div>
+<ol>
+<li>或者在命令中直接【在线】联网按照**（推荐）**</li>
+</ol>
+<h3 id="section-11">借助 gu 来安装 native-image</h3>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">gu</span><span style="color:#032F62"> install</span><span style="color:#032F62"> native-image</span></span></code></pre></div>
+<p>查看已经安装的 native-image 版本</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">native-image</span><span style="color:#005CC5"> --version</span></span></code></pre></div>
+<p><img src="/article-library-site/media/1ac2ab6670bbf26a31.webp" alt="GraalVM入门教程配图 4" loading="lazy" decoding="async" /></p>
+<p>查看已经安装的GraalVM 中的各种组件</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">gu</span><span style="color:#032F62"> list</span></span></code></pre></div>
+<p><img src="/article-library-site/media/7cd55d762c05c2012a.webp" alt="GraalVM入门教程配图 5" loading="lazy" decoding="async" /></p>
+<p><a id="yu8AC"></a></p>
+<h4 id="section-12">安装gcc、glibc-devel 与 zlib-devel</h4>
+<p>MacOS 系统，请运行：</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">brew</span><span style="color:#032F62"> install</span><span style="color:#032F62"> gcc</span><span style="color:#032F62"> zlib</span></span></code></pre></div>
+<p>CentOS 系统，请运行：</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">yum</span><span style="color:#032F62"> install</span><span style="color:#005CC5"> -y</span><span style="color:#032F62"> gcc</span><span style="color:#032F62"> glibc-devel</span><span style="color:#032F62"> zlib-devel</span></span></code></pre></div>
+<p>Ubuntu 系统，请运行：</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">sudo</span><span style="color:#032F62"> apt</span><span style="color:#032F62"> install</span><span style="color:#032F62"> gcc</span><span style="color:#032F62"> libc6-dev</span><span style="color:#032F62"> zlib1g-dev</span></span>
+<span class="line"></span></code></pre></div>
+<p><a id="R6pUF"></a></p>
+<h4 id="section-13">下载maven并配置环境变量</h4>
+<p>请参考：<a href="https://blog.csdn.net/qq_34845394/article/details/90674933">https://blog.csdn.net/qq_34845394/article/details/90674933</a></p>
+<p><img src="/article-library-site/media/3e60a3db0a34351a03.webp" alt="GraalVM入门教程配图 6" loading="lazy" decoding="async" /></p>
+<p><a id="gMgsk"></a></p>
+<h3 id="section-14">windows</h3>
+<p>环境：</p>
+<ul>
+<li>win11</li>
+<li>jdk17</li>
+<li>maven 3.6.1</li>
+<li>spring-boot3.1.4</li>
+<li>idea 2023.2.2</li>
+</ul>
+<p><a id="Ge23U"></a></p>
+<h4 id="section-15">下载GraalVM</h4>
+<p>下载GraalVM for JDK 17 Community 17.0.8：</p>
+<p><a href="https://github.com/graalvm/graalvm-ce-builds/releases/tag/jdk-17.0.8">https://github.com/graalvm/graalvm-ce-builds/releases/tag/jdk-17.0.8</a></p>
+<p><img src="/article-library-site/media/c13d1056978238475d.webp" alt="GraalVM入门教程配图 7" loading="lazy" decoding="async" /></p>
+<p><a id="vru59"></a></p>
+<h4 id="section-16">配置环境变量</h4>
+<p>请参考：<a href="https://zhuanlan.zhihu.com/p/610486052">https://zhuanlan.zhihu.com/p/610486052</a></p>
+<p><a id="rLhCG"></a></p>
+<h4 id="section-17">下载安装AOT编译器 native-image</h4>
+<div class="code-example"><div class="code-toolbar"><span>powershell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>gu.cmd install native-image</span></span></code></pre></div>
+<p><img src="/article-library-site/media/06386164e0cb936909.webp" alt="GraalVM入门教程配图 8" loading="lazy" decoding="async" /></p>
+<p><a id="JtGAp"></a></p>
+<h4 id="section-18">下载配置windows sdk和msvc</h4>
+<p>Microsoft Visual C++(简称Visual <em>C++、MSVC、VS或VC)是微软公司的免费C++开发工具</em>,具有集成开发环境,可提供编辑C语言,C++以及C++/CLI等编程语言。</p>
+<p>请参考：<a href="https://zhuanlan.zhihu.com/p/610486052">https://zhuanlan.zhihu.com/p/610486052</a></p>
+<p><a id="a0BVa"></a></p>
+<h4 id="section-19">下载maven并配置环境变量</h4>
+<p>过于简单，自行百度</p>
+<p><img src="/article-library-site/media/9750303c9ea3a92f4f.webp" alt="GraalVM入门教程配图 9" loading="lazy" decoding="async" /></p>
+<p><a id="xPgEe"></a></p>
+<h2 id="section-20">创建、构建、运行SpringBoot3的项目</h2>
+<p><strong>项目必须是 SpringBoot 3.0 版本以上 + JDK17</strong></p>
+<p>这里提供一个我测试的项目，源码地址：<a href="https://gitee.com/leiguoqing/spring-boot3-demo">https://gitee.com/leiguoqing/spring-boot3-demo</a></p>
+<p><a id="xsev0"></a></p>
+<h3 id="section-21">windows</h3>
+<p>如果你想自己创建项目流程如下：</p>
+<p><img src="/article-library-site/media/1e9813106f645e978a.webp" alt="GraalVM入门教程配图 10" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/1d77f935f87ca57d1c.webp" alt="GraalVM入门教程配图 11" loading="lazy" decoding="async" /></p>
+<p>创建好之后，pom.xml 文件和spring-boot2项目有所不同，右边的maven也有所不同</p>
+<p><img src="/article-library-site/media/8a30ef8817f45e440b.webp" alt="GraalVM入门教程配图 12" loading="lazy" decoding="async" /></p>
+<p>勾上 maven 上面的native，然后点击plugins里面的 native:compile进行构建，构建的速度取决于电脑的性能</p>
+<p><img src="/article-library-site/media/2a3e5a7675f1f4ab18.webp" alt="GraalVM入门教程配图 13" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/636328af787b00eee9.webp" alt="GraalVM入门教程配图 14" loading="lazy" decoding="async" /></p>
+<p>也可以手动用maven命令进行构建，如下：</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">mvn</span><span style="color:#032F62"> clean</span><span style="color:#005CC5"> -Pnative</span><span style="color:#032F62"> native:compile</span><span style="color:#005CC5"> -DskipTests</span></span></code></pre></div>
+<p><img src="/article-library-site/media/697768f04c3f5f60ef.webp" alt="GraalVM入门教程配图 15" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/784ddae24c19591da8.webp" alt="GraalVM入门教程配图 16" loading="lazy" decoding="async" /></p>
+<p>此时项目的target目录会生成一个.exe的可执行文件，因为我们是在windows上面操作的，如果是Linux系统就会生成Linux系统的可执行文件</p>
+<p><img src="/article-library-site/media/50c581c6aee0a7b378.webp" alt="GraalVM入门教程配图 17" loading="lazy" decoding="async" /></p>
+<p>直接双击此 exe 就可以直接运行项目</p>
+<p><img src="/article-library-site/media/0624966704cac48e13.webp" alt="GraalVM入门教程配图 18" loading="lazy" decoding="async" /></p>
+<p>可以看到启动速度飞快！！！</p>
+<p><a id="T58tq"></a></p>
+<h3 id="section-22">Linux</h3>
+<p>接下来在Linux上面操作下</p>
+<p>将项目上传到Linux服务器：</p>
+<p><img src="/article-library-site/media/fe9694db169f4b28a7.webp" alt="GraalVM入门教程配图 19" loading="lazy" decoding="async" /></p>
+<p>进入spring-boot3-demo目录，然后执行下面的命令进行构建：</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">mvn</span><span style="color:#032F62"> clean</span><span style="color:#005CC5"> -Pnative</span><span style="color:#032F62"> native:compile</span><span style="color:#005CC5"> -DskipTests</span></span></code></pre></div>
+<p><img src="/article-library-site/media/727a8f705684653727.webp" alt="GraalVM入门教程配图 20" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/88bed2fb91e458a4d1.webp" alt="GraalVM入门教程配图 21" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/bd5038c1107a81db69.webp" alt="GraalVM入门教程配图 22" loading="lazy" decoding="async" /></p>
+<p>构建成功后target目录下就会生成可执行文件，就可以直接运行了</p>
+<p><img src="/article-library-site/media/2677b3e661860b6d37.webp" alt="GraalVM入门教程配图 23" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/dd6cb25d652b1e85a3.webp" alt="GraalVM入门教程配图 24" loading="lazy" decoding="async" /></p>
+<p>速度飞快！！！</p>
+<p><img src="/article-library-site/media/d9ec6df9a42b1fd852.webp" alt="GraalVM入门教程配图 25" loading="lazy" decoding="async" /></p>
+<p><a id="eJtqK"></a></p>
+<h2 id="section-23">传统jar包和原生镜像速度对比</h2>
+<p><a id="kEEMF"></a></p>
+<h3 id="section-24">windows</h3>
+<p><img src="/article-library-site/media/d3bc4c6fd3b2153bc8.webp" alt="GraalVM入门教程配图 26" loading="lazy" decoding="async" /></p>
+<p><a id="PDeiz"></a></p>
+<h3 id="section-25">Linux</h3>
+<p><img src="/article-library-site/media/d880948ddc7628c7a8.webp" alt="GraalVM入门教程配图 27" loading="lazy" decoding="async" /></p>
+<p><strong>不管windows还是Linux启动速度快了十几倍，甚至几十倍！！！</strong></p>
+<p>参考文章：</p>
+<ul>
+<li><a href="https://zhuanlan.zhihu.com/p/610486052">GraalVM在windows上的环境搭建（2023年版本）</a></li>
+<li><a href="https://blog.csdn.net/qq_35760825/article/details/130459747">GraalVM编译SpringBoot程序-CSDN博客</a></li>
+</ul>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/"><span>继续阅读</span><strong>浏览全部技术分享</strong></a><a href="/article-library-site/tech/java-nio-file-split/" class="next-article"><span>同分类 · 下一篇</span><strong>Java NIO 实现大文本按行拆分文件，仅支持 txt、csv 格式文件</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="使用 PDFBox 2.x 将图片放入 PDF，整理坐标、图片对象与文件写出示例。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="PDFBox 向 PDF 中填充图片"><meta property="og:description" content="使用 PDFBox 2.x 将图片放入 PDF，整理坐标、图片对象与文件写出示例。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>PDFBox 向 PDF 中填充图片 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">3 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">pom.xml</a><a href="#section-2" style="--indent:0">核心代码</a><a href="#section-3" style="--indent:0">参考</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">PDFBox 向 PDF 中填充图片</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 7 分钟</span></div><p class="tech-dates">原笔记 2021-11-26<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>使用 PDFBox 2.x 将图片放入 PDF，整理坐标、图片对象与文件写出示例。</p>
+<blockquote>
+<p>版本说明：本文沿用 PDFBox 2.x 的 API。PDFBox 3.x 的文档加载方式有变化，升级时请对照官方迁移指南。</p>
+</blockquote>
+<p><a id="HGad3"></a></p>
+<h2 id="section-1">pom.xml</h2>
+<div class="code-example"><div class="code-toolbar"><span>xml</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">&lt;!-- https://mvnrepository.com/artifact/org.apache.pdfbox/pdfbox --&gt;</span></span>
+<span class="line"><span style="color:#24292E">&lt;</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">  &lt;</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;org.apache.pdfbox&lt;/</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">  &lt;</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;pdfbox&lt;/</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">  &lt;</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;2.0.24&lt;/</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">&lt;/</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">&lt;!--commons-io--&gt;</span></span>
+<span class="line"><span style="color:#24292E">&lt;</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">  &lt;</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;commons-io&lt;/</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">  &lt;</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;commons-io&lt;/</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">  &lt;</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;2.6&lt;/</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">&lt;/</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span></code></pre></div>
+<p><a id="mSUCb"></a></p>
+<h2 id="section-2">核心代码</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.example.pdfdemo.main;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> ch.qos.logback.core.util.ContentTypeUtil;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.extern.slf4j.Slf4j;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.commons.io.FileUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.pdfbox.pdmodel.PDDocument;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.pdfbox.pdmodel.PDPage;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.pdfbox.pdmodel.PDPageContentStream;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.io.BufferedInputStream;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.io.File;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.io.IOException;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.io.InputStream;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.net.HttpURLConnection;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.net.URL;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 向 PDF 中 填充图片</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2021-11-26 9:11</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Slf4j</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> PdfDemo</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> main</span><span style="color:#24292E">(</span><span style="color:#D73A49">String</span><span style="color:#24292E">[] </span><span style="color:#E36209">args</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        File file </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> File</span><span style="color:#24292E">(</span><span style="color:#032F62">"D:</span><span style="color:#005CC5">\\</span><span style="color:#032F62">2021年亿客临scrm服务合同协议$20211124.pdf"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">        try</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">            // 加载现有PDF文档</span></span>
+<span class="line"><span style="color:#24292E">            PDDocument doc </span><span style="color:#D73A49">=</span><span style="color:#24292E"> PDDocument.</span><span style="color:#6F42C1">load</span><span style="color:#24292E">(file);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 检索页面</span></span>
+<span class="line"><span style="color:#24292E">            PDPage page </span><span style="color:#D73A49">=</span><span style="color:#24292E"> doc.</span><span style="color:#6F42C1">getPage</span><span style="color:#24292E">(</span><span style="color:#005CC5">7</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 创建PDImageXObject对象</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> URL url </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> URL</span><span style="color:#24292E">(</span><span style="color:#032F62">"https://testapi.fadada.com:8443/api/get_file.api?uuid=63877c1cc042474aa34964be7971c6b0&amp;app_id=405267&amp;timestamp=20211126104727&amp;v=2.0&amp;msg_digest=OTlERDNEOUFGQjExNDQzQkI0NDgzRjVCNTE2NkI4MkE3NzgxRkY1NQ=="</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> InputStream inputStream </span><span style="color:#D73A49">=</span><span style="color:#24292E"> url.</span><span style="color:#6F42C1">openStream</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> HttpURLConnection urlConnection </span><span style="color:#D73A49">=</span><span style="color:#24292E"> (HttpURLConnection) url.</span><span style="color:#6F42C1">openConnection</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">            urlConnection.</span><span style="color:#6F42C1">connect</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> BufferedInputStream bis </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> BufferedInputStream</span><span style="color:#24292E">(urlConnection.</span><span style="color:#6F42C1">getInputStream</span><span style="color:#24292E">());</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> String contentType </span><span style="color:#D73A49">=</span><span style="color:#24292E"> HttpURLConnection.</span><span style="color:#6F42C1">guessContentTypeFromStream</span><span style="color:#24292E">(bis);</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> String fileSuffix </span><span style="color:#D73A49">=</span><span style="color:#24292E"> ContentTypeUtil.</span><span style="color:#6F42C1">getSubType</span><span style="color:#24292E">(contentType);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 将文件重命名（唯一）后存储到临时目录</span></span>
+<span class="line"><span style="color:#24292E">            String newFileName </span><span style="color:#D73A49">=</span><span style="color:#24292E"> System.</span><span style="color:#6F42C1">currentTimeMillis</span><span style="color:#24292E">() </span><span style="color:#D73A49">+</span><span style="color:#032F62"> "."</span><span style="color:#D73A49"> +</span><span style="color:#24292E"> fileSuffix;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 临时营业执照文件存放目录地址</span></span>
+<span class="line"><span style="color:#24292E">            String businessLicenseTempDirPath </span><span style="color:#D73A49">=</span><span style="color:#24292E"> FileUtils.</span><span style="color:#6F42C1">getTempDirectoryPath</span><span style="color:#24292E">() </span><span style="color:#D73A49">+</span><span style="color:#24292E"> File.separator </span><span style="color:#D73A49">+</span><span style="color:#032F62"> "BusinessLicense"</span><span style="color:#D73A49"> +</span><span style="color:#24292E"> File.separator;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 临时营业执照文件</span></span>
+<span class="line"><span style="color:#24292E">            File businessLicenseFileTemp </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> File</span><span style="color:#24292E">(businessLicenseTempDirPath </span><span style="color:#D73A49">+</span><span style="color:#24292E"> newFileName);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">            FileUtils.</span><span style="color:#6F42C1">copyInputStreamToFile</span><span style="color:#24292E">(inputStream, businessLicenseFileTemp);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">            PDImageXObject pdImage </span><span style="color:#D73A49">=</span><span style="color:#24292E"> PDImageXObject.</span><span style="color:#6F42C1">createFromFileByExtension</span><span style="color:#24292E">(businessLicenseFileTemp, doc);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 准备内容流</span></span>
+<span class="line"><span style="color:#24292E">            PDPageContentStream contentStream </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> PDPageContentStream</span><span style="color:#24292E">(doc, page, PDPageContentStream.AppendMode.APPEND, </span><span style="color:#005CC5">true</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 在PDF文档中绘制图像</span></span>
+<span class="line"><span style="color:#24292E">            contentStream.</span><span style="color:#6F42C1">drawImage</span><span style="color:#24292E">(pdImage, </span><span style="color:#005CC5">100</span><span style="color:#24292E">, </span><span style="color:#005CC5">100</span><span style="color:#24292E">, </span><span style="color:#005CC5">400</span><span style="color:#24292E">, </span><span style="color:#005CC5">600</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 关闭PDPageContentStream</span></span>
+<span class="line"><span style="color:#24292E">            contentStream.</span><span style="color:#6F42C1">close</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 保存文档</span></span>
+<span class="line"><span style="color:#24292E">            doc.</span><span style="color:#6F42C1">save</span><span style="color:#24292E">(</span><span style="color:#032F62">"D:</span><span style="color:#005CC5">\\</span><span style="color:#032F62">new_pdf.pdf"</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 关闭文档</span></span>
+<span class="line"><span style="color:#24292E">            doc.</span><span style="color:#6F42C1">close</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 删除临时文件</span></span>
+<span class="line"><span style="color:#24292E">            FileUtils.</span><span style="color:#6F42C1">deleteQuietly</span><span style="color:#24292E">(businessLicenseFileTemp);</span></span>
+<span class="line"><span style="color:#24292E">        } </span><span style="color:#D73A49">catch</span><span style="color:#24292E"> (IOException </span><span style="color:#E36209">e</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">            log.</span><span style="color:#6F42C1">error</span><span style="color:#24292E">(</span><span style="color:#032F62">"error"</span><span style="color:#24292E">, e);</span></span>
+<span class="line"><span style="color:#24292E">            e.</span><span style="color:#6F42C1">printStackTrace</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p><a id="PVtce"></a></p>
+<h2 id="section-3">参考</h2>
+<ul>
+<li><a href="https://iowiki.com/pdfbox/pdfbox_inserting_image.html">PDFBox - 插入图像( Inserting Image)</a></li>
+<li><a href="https://blog.csdn.net/kanglong129/article/details/103715854">java pdfbox 合并PDF、PDF转图片、PDF插入图片</a></li>
+<li><a href="https://iowiki.com/pdfbox/pdfbox_loading_a_document.html">PDFBox - 加载文档( Loading a Document)_学习PDFbox|WIKI教程</a></li>
+<li><a href="https://www.yiibai.com/pdfbox/pdfbox_overview.html">PDFBox简介 - PDFBox教程</a></li>
+</ul>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/orika-mapping/"><span>同分类 · 上一篇</span><strong>Orika 对象映射笔记</strong></a><a href="/article-library-site/tech/" class="next-article"><span>继续阅读</span><strong>浏览全部技术分享</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="使用 FileChannel 按换行边界拆分大文本，保留完整示例及文件格式边界说明。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="Java NIO 实现大文本按行拆分文件，仅支持 txt、csv 格式文件"><meta property="og:description" content="使用 FileChannel 按换行边界拆分大文本，保留完整示例及文件格式边界说明。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>Java NIO 实现大文本按行拆分文件，仅支持 txt、csv 格式文件 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">1 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">按行拆分文件，仅支持 txt、csv 格式文件</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">Java NIO 实现大文本按行拆分文件，仅支持 txt、csv 格式文件</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 8 分钟</span></div><p class="tech-dates">原笔记 2022-10-25<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>使用 FileChannel 按换行边界拆分大文本，保留完整示例及文件格式边界说明。</p>
+<blockquote>
+<p>适用范围：这份代码按物理换行拆分文本，不是 CSV 解析器；带引号字段内含换行的 CSV 不适用。示例依赖 Commons IO 与 Spring Assert 等工具类；传入的拆分数量和长度须大于零，使用前请用小文件核对边界与编码。</p>
+</blockquote>
+<h2 id="section-1">按行拆分文件，仅支持 txt、csv 格式文件</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 按行拆分文件，仅支持 txt、csv 格式文件</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *     注意：</span></span>
+<span class="line"><span style="color:#6A737D"> *     1、使用Java NIO 实现，速度更快</span></span>
+<span class="line"><span style="color:#6A737D"> *     2、最后拆分的单个文件大小可能比设置的值略小</span></span>
+<span class="line"><span style="color:#6A737D"> *     3、拆分的文件存放位置和传入文件在同级目录，名称格式为：源文件名称_[1 - fileCount].源文件格式后缀</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;/pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> file</span><span style="color:#6A737D">       文件</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> fileLength</span><span style="color:#6A737D"> 单个拆分文件字节大小</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> splitFileByRowAndLength</span><span style="color:#24292E">(File file, </span><span style="color:#D73A49">int</span><span style="color:#24292E"> fileLength) throws IOException {</span></span>
+<span class="line"><span style="color:#D73A49">    final</span><span style="color:#D73A49"> long</span><span style="color:#24292E"> length </span><span style="color:#D73A49">=</span><span style="color:#24292E"> file.</span><span style="color:#6F42C1">length</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    if</span><span style="color:#24292E"> (length </span><span style="color:#D73A49">&lt;=</span><span style="color:#24292E"> fileLength) {</span></span>
+<span class="line"><span style="color:#24292E">        FileUtils.</span><span style="color:#6F42C1">copyFile</span><span style="color:#24292E">(file, </span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> File</span><span style="color:#24292E">(</span><span style="color:#6F42C1">getOutPutFilePath</span><span style="color:#24292E">(file.</span><span style="color:#6F42C1">getPath</span><span style="color:#24292E">(), </span><span style="color:#032F62">"_1"</span><span style="color:#24292E">)));</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    // 计算切割文件个数</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> fileCount </span><span style="color:#D73A49">=</span><span style="color:#24292E"> Double.</span><span style="color:#6F42C1">valueOf</span><span style="color:#24292E">(Math.</span><span style="color:#6F42C1">ceil</span><span style="color:#24292E">((</span><span style="color:#D73A49">double</span><span style="color:#24292E">) length </span><span style="color:#D73A49">/</span><span style="color:#24292E"> fileLength)).</span><span style="color:#6F42C1">intValue</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#6F42C1">    splitFileByRowAndCount</span><span style="color:#24292E">(file, fileCount);</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 按行拆分文件，仅支持 txt、csv 格式文件</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *     注意：</span></span>
+<span class="line"><span style="color:#6A737D"> *     1、使用Java NIO 实现，速度更快</span></span>
+<span class="line"><span style="color:#6A737D"> *     2、最后拆分的文件数量可能比设置的值小，因为数据按行拆分后，拆分数量过大会导致数据不够拆</span></span>
+<span class="line"><span style="color:#6A737D"> *     3、拆分的文件存放位置和传入文件在同级目录，名称格式为：源文件名称_[1 - fileCount].源文件格式后缀</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;/pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> file</span><span style="color:#6A737D">      文件</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> fileCount</span><span style="color:#6A737D"> 拆分数量</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> splitFileByRowAndCount</span><span style="color:#24292E">(File file, </span><span style="color:#D73A49">int</span><span style="color:#24292E"> fileCount) throws IOException {</span></span>
+<span class="line"><span style="color:#24292E">    Assert.</span><span style="color:#6F42C1">notNull</span><span style="color:#24292E">(file, </span><span style="color:#032F62">"file must not null"</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    final</span><span style="color:#24292E"> String canonicalPath </span><span style="color:#D73A49">=</span><span style="color:#24292E"> file.</span><span style="color:#6F42C1">getCanonicalPath</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    Assert.</span><span style="color:#6F42C1">isTrue</span><span style="color:#24292E">(canonicalPath.</span><span style="color:#6F42C1">endsWith</span><span style="color:#24292E">(</span><span style="color:#032F62">".txt"</span><span style="color:#24292E">) </span><span style="color:#D73A49">||</span><span style="color:#24292E"> canonicalPath.</span><span style="color:#6F42C1">endsWith</span><span style="color:#24292E">(</span><span style="color:#032F62">".csv"</span><span style="color:#24292E">), </span><span style="color:#032F62">"file type not support"</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    try</span><span style="color:#24292E"> (</span><span style="color:#D73A49">final</span><span style="color:#24292E"> FileInputStream fis </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> FileInputStream</span><span style="color:#24292E">(file); </span><span style="color:#D73A49">final</span><span style="color:#24292E"> FileChannel inputChannel </span><span style="color:#D73A49">=</span><span style="color:#24292E"> fis.</span><span style="color:#6F42C1">getChannel</span><span style="color:#24292E">()) {</span></span>
+<span class="line"><span style="color:#6A737D">        // 文件总大小（字节）</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#D73A49"> long</span><span style="color:#24292E"> fileSize </span><span style="color:#D73A49">=</span><span style="color:#24292E"> inputChannel.</span><span style="color:#6F42C1">size</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 平均值</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#D73A49"> long</span><span style="color:#24292E"> average </span><span style="color:#D73A49">=</span><span style="color:#24292E"> fileSize </span><span style="color:#D73A49">/</span><span style="color:#24292E"> fileCount;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 缓存块大小，自行调整</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#D73A49"> long</span><span style="color:#24292E"> bufferSize </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> 200</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 申请一个缓存区</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> ByteBuffer byteBuffer </span><span style="color:#D73A49">=</span><span style="color:#24292E"> ByteBuffer.</span><span style="color:#6F42C1">allocate</span><span style="color:#24292E">(Integer.</span><span style="color:#6F42C1">parseInt</span><span style="color:#24292E">(bufferSize </span><span style="color:#D73A49">+</span><span style="color:#032F62"> ""</span><span style="color:#24292E">));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 子文件开始位置</span></span>
+<span class="line"><span style="color:#D73A49">        long</span><span style="color:#24292E"> startPosition </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 子文件结束位置</span></span>
+<span class="line"><span style="color:#D73A49">        long</span><span style="color:#24292E"> endPosition </span><span style="color:#D73A49">=</span><span style="color:#24292E"> average </span><span style="color:#D73A49">&lt;</span><span style="color:#24292E"> bufferSize </span><span style="color:#D73A49">?</span><span style="color:#005CC5"> 0</span><span style="color:#D73A49"> :</span><span style="color:#24292E"> average </span><span style="color:#D73A49">-</span><span style="color:#24292E"> bufferSize;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">        for</span><span style="color:#24292E"> (</span><span style="color:#D73A49">int</span><span style="color:#24292E"> i </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">; i </span><span style="color:#D73A49">&lt;</span><span style="color:#24292E"> fileCount; i</span><span style="color:#D73A49">++</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (i </span><span style="color:#D73A49">+</span><span style="color:#005CC5"> 1</span><span style="color:#D73A49"> !=</span><span style="color:#24292E"> fileCount) {</span></span>
+<span class="line"><span style="color:#6A737D">                // 读取数据</span></span>
+<span class="line"><span style="color:#D73A49">                int</span><span style="color:#24292E"> read </span><span style="color:#D73A49">=</span><span style="color:#24292E"> inputChannel.</span><span style="color:#6F42C1">read</span><span style="color:#24292E">(byteBuffer, endPosition);</span></span>
+<span class="line"><span style="color:#24292E">                readW</span><span style="color:#D73A49">:</span></span>
+<span class="line"><span style="color:#D73A49">                while</span><span style="color:#24292E"> (read </span><span style="color:#D73A49">!=</span><span style="color:#D73A49"> -</span><span style="color:#005CC5">1</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#6A737D">                    //切换读模式</span></span>
+<span class="line"><span style="color:#24292E">                    byteBuffer.</span><span style="color:#6F42C1">flip</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#D73A49">                    byte</span><span style="color:#24292E">[] array </span><span style="color:#D73A49">=</span><span style="color:#24292E"> byteBuffer.</span><span style="color:#6F42C1">array</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#D73A49">                    for</span><span style="color:#24292E"> (</span><span style="color:#D73A49">int</span><span style="color:#24292E"> j </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">; j </span><span style="color:#D73A49">&lt;</span><span style="color:#24292E"> array.length; j</span><span style="color:#D73A49">++</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">                        byte</span><span style="color:#24292E"> b </span><span style="color:#D73A49">=</span><span style="color:#24292E"> array[j];</span></span>
+<span class="line"><span style="color:#6A737D">                        //判断\n\r</span></span>
+<span class="line"><span style="color:#D73A49">                        if</span><span style="color:#24292E"> (b </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> 10</span><span style="color:#D73A49"> ||</span><span style="color:#24292E"> b </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> 13</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">                            endPosition </span><span style="color:#D73A49">+=</span><span style="color:#24292E"> j;</span></span>
+<span class="line"><span style="color:#D73A49">                            break</span><span style="color:#24292E"> readW;</span></span>
+<span class="line"><span style="color:#24292E">                        }</span></span>
+<span class="line"><span style="color:#24292E">                    }</span></span>
+<span class="line"><span style="color:#24292E">                    endPosition </span><span style="color:#D73A49">+=</span><span style="color:#24292E"> bufferSize;</span></span>
+<span class="line"><span style="color:#6A737D">                    //重置缓存块指针</span></span>
+<span class="line"><span style="color:#24292E">                    byteBuffer.</span><span style="color:#6F42C1">clear</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">                    read </span><span style="color:#D73A49">=</span><span style="color:#24292E"> inputChannel.</span><span style="color:#6F42C1">read</span><span style="color:#24292E">(byteBuffer, endPosition);</span></span>
+<span class="line"><span style="color:#24292E">                }</span></span>
+<span class="line"><span style="color:#24292E">            } </span><span style="color:#D73A49">else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">                //最后一个文件直接指向文件末尾</span></span>
+<span class="line"><span style="color:#24292E">                endPosition </span><span style="color:#D73A49">=</span><span style="color:#24292E"> fileSize;</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (startPosition </span><span style="color:#D73A49">&gt;=</span><span style="color:#24292E"> endPosition) {</span></span>
+<span class="line"><span style="color:#6A737D">                // 不需要再分了，数据已经分完了</span></span>
+<span class="line"><span style="color:#D73A49">                break</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 切割的文件名称</span></span>
+<span class="line"><span style="color:#24292E">            String pathName </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> getOutPutFilePath</span><span style="color:#24292E">(canonicalPath, </span><span style="color:#032F62">"_"</span><span style="color:#D73A49"> +</span><span style="color:#24292E"> (i </span><span style="color:#D73A49">+</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            try</span><span style="color:#24292E"> (</span><span style="color:#D73A49">final</span><span style="color:#24292E"> FileOutputStream fos </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> FileOutputStream</span><span style="color:#24292E">(pathName); </span><span style="color:#D73A49">final</span><span style="color:#24292E"> FileChannel outputChannel </span><span style="color:#D73A49">=</span><span style="color:#24292E"> fos.</span><span style="color:#6F42C1">getChannel</span><span style="color:#24292E">()) {</span></span>
+<span class="line"><span style="color:#6A737D">                // 通道传输文件数据</span></span>
+<span class="line"><span style="color:#24292E">                inputChannel.</span><span style="color:#6F42C1">transferTo</span><span style="color:#24292E">(startPosition, endPosition </span><span style="color:#D73A49">-</span><span style="color:#24292E"> startPosition, outputChannel);</span></span>
+<span class="line"><span style="color:#24292E">                startPosition </span><span style="color:#D73A49">=</span><span style="color:#24292E"> endPosition </span><span style="color:#D73A49">+</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">                endPosition </span><span style="color:#D73A49">+=</span><span style="color:#24292E"> average;</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 校验文件是否为空</span></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> File outFile </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> File</span><span style="color:#24292E">(pathName);</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (outFile.</span><span style="color:#6F42C1">exists</span><span style="color:#24292E">() </span><span style="color:#D73A49">&amp;&amp;</span><span style="color:#24292E"> outFile.</span><span style="color:#6F42C1">length</span><span style="color:#24292E">() </span><span style="color:#D73A49">&lt;=</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">                final</span><span style="color:#D73A49"> boolean</span><span style="color:#24292E"> delete </span><span style="color:#D73A49">=</span><span style="color:#24292E"> outFile.</span><span style="color:#6F42C1">delete</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">                log.</span><span style="color:#6F42C1">debug</span><span style="color:#24292E">(</span><span style="color:#032F62">"outFile is null, delete = "</span><span style="color:#D73A49"> +</span><span style="color:#24292E"> delete);</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * Gets out put file path.</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> filePath</span><span style="color:#6A737D"> the file path</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> suffix</span><span style="color:#6A737D">   the suffix</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the out put file path</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">private</span><span style="color:#D73A49"> static</span><span style="color:#24292E"> String </span><span style="color:#6F42C1">getOutPutFilePath</span><span style="color:#24292E">(String filePath, String suffix) {</span></span>
+<span class="line"><span style="color:#D73A49">    final</span><span style="color:#D73A49"> int</span><span style="color:#24292E"> lastIndexOf </span><span style="color:#D73A49">=</span><span style="color:#24292E"> filePath.</span><span style="color:#6F42C1">lastIndexOf</span><span style="color:#24292E">(</span><span style="color:#032F62">"."</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">    return</span><span style="color:#24292E"> filePath.</span><span style="color:#6F42C1">substring</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">, lastIndexOf) </span><span style="color:#D73A49">+</span><span style="color:#24292E"> suffix </span><span style="color:#D73A49">+</span><span style="color:#24292E"> filePath.</span><span style="color:#6F42C1">substring</span><span style="color:#24292E">(lastIndexOf);</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>参考：</p>
+<ul>
+<li><a href="https://blog.51cto.com/u_15127677/4550340">Java NIO 实现大文本文件拆分_51CTO博客_java nio读取文件</a></li>
+<li><a href="https://www.jianshu.com/p/7a81f603fe1d">https://www.jianshu.com/p/7a81f603fe1d</a></li>
+<li><a href="https://www.zhangshengrong.com/p/x7XRM7dlNz/">Java实现按行分割大文件 / 张生荣</a></li>
+</ul>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/graalvm-introduction/"><span>同分类 · 上一篇</span><strong>GraalVM 入门教程</strong></a><a href="/article-library-site/tech/java-generics/" class="next-article"><span>同分类 · 下一篇</span><strong>Java 泛型学习资料</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

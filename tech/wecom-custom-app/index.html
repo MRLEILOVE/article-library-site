@@ -1,0 +1,235 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="企业微信自建应用的术语、授权流程、消息推送与旧版 JS-SDK 接入记录。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="企业微信自建应用开发笔记"><meta property="og:description" content="企业微信自建应用的术语、授权流程、消息推送与旧版 JS-SDK 接入记录。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>企业微信自建应用开发笔记 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>开发实践</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">9 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">术语</a><a href="#section-2" style="--indent:0">应用</a><a href="#section-3" style="--indent:0">访问令牌</a><a href="#section-4" style="--indent:0">场景一：网页授权登录</a><a href="#section-5" style="--indent:0">场景二：扫码授权登录</a><a href="#section-6" style="--indent:0">场景三：素材管理</a><a href="#section-7" style="--indent:0">场景四：消息推送</a><a href="#section-8" style="--indent:0">场景五：JS-SDK</a><a href="#section-9" style="--indent:0">最后说两句</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 开发实践</p><h1 id="article-title">企业微信自建应用开发笔记</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 15 分钟</span></div><p class="tech-dates">原笔记 2021-09-26<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>企业微信自建应用的术语、授权流程、消息推送与旧版 JS-SDK 接入记录。</p>
+<blockquote>
+<p>版本说明：这是一份包含 2018 年接口与界面的学习记录。保留术语与交互过程供理解，授权范围、返回字段、素材有效期和 JS-SDK 配置请以当前企业微信文档为准。</p>
+</blockquote>
+<p><a id="S8GE7"></a></p>
+<p><img src="/article-library-site/media/f456c4b9190fe3468c.webp" alt="企业微信开发-自建应用配图 1" loading="lazy" decoding="async" /></p>
+<p><a id="FRDBf"></a></p>
+<h2 id="section-1">术语</h2>
+<ul>
+<li><p>corpid：企业ID 每个企业都有唯一的corpid：我的企业--企业信息</p>
+</li>
+<li><p>userid：每个成员都有唯一的userid（账号）：通讯录--成员详情页</p>
+</li>
+<li><p>部门id：每个部门都有唯一的id：通讯录-组织架构-部门右边的小圆点<br />-tagid：每个标签都有唯一的标签id：通讯录-标签</p>
+</li>
+<li><p>agentid：每个应用唯一的id：应用与小程序-应用详情页</p>
+</li>
+<li><p>secret：企业应用中用于保障数据安全的钥匙【跟agentid配套】 ，目前的secret：</p>
+</li>
+<li><p>自建应用secret：应用与小程序--应用--自建--某应用</p>
+</li>
+<li><p>基础应用secret：【如审批，打卡等应用】企业与小程序--应用--基础--某应用--点开API小按钮</p>
+</li>
+<li><p>通讯录管理secret：通讯录同步【需开启api接口同步】</p>
+</li>
+<li><p>外部联系人管理secret：外部联系人--点开API小按钮</p>
+</li>
+<li><p>access_token：是企业后台去企业微信的后台获取信息时的重要 票据，由corpid和secret产生。所有接口在通信时都需要携带access_token用于验证接口的访问权限</p>
+</li>
+</ul>
+<p><strong>每个企业号CorpID只有一个，但Secret却有几种</strong>，<strong>不同Secret获取到的令牌它的作用范围是不同的。</strong></p>
+<p>Secret分类如下：</p>
+<ul>
+<li><strong>应用Secret</strong>：点击“应用详情”就看到了</li>
+<li><strong>通讯录管理Secret</strong>：查看方式是“管理工具/通讯录同步”</li>
+<li><strong>管理组Secret</strong>：查看方式是“我的企业/权限管理/管理组”（你如果找不到也很正常，因为这是老用户才有的“待遇”，现已退出历史舞台，奸笑ing）。</li>
+</ul>
+<p><a id="ftc6I"></a></p>
+<h2 id="section-2">应用</h2>
+<p>按提供方来分有三种：</p>
+<ol>
+<li>基础应用：由微信提供；</li>
+<li>第三方应用：开放体系下的第三方服务商提供；</li>
+<li>自建应用：我们自己新建的，一般我们也都是需要自建应用进行开发。</li>
+</ol>
+<p>按作用来分有两种：</p>
+<ol>
+<li>**主页型应用：**用户点击应用后直接打开一个链接；</li>
+<li>**消息型应用：**可以像公众号一样设置多个菜单，每个菜单可以配置不同的响应方式。</li>
+</ol>
+<p>以下展示一个应用详情界面：</p>
+<p><img src="/article-library-site/media/713b7f4f904e79463b.webp" alt="企业微信开发-自建应用配图 2" loading="lazy" decoding="async" /></p>
+<p>应用详情</p>
+<p>从上图我们可以看出，一个应用主要包含以下几方面的信息：</p>
+<ol>
+<li><strong>AgentId</strong>：应用ID，新建应用后由微信生成；</li>
+<li><strong>Secret</strong>：应用的Secret，结合CorpID用来获取access_token；</li>
+<li><strong>可见范围</strong>：哪些人能看到这个应用（可按人、按部门或者按标签进行设定）；</li>
+<li>**管理员：**可对该应用进行管理的人；</li>
+<li><strong>可信域名</strong>：应用网页相关地址需要满足对应接口的可信域名配置要求。原笔记中的示例为 <code>www.example.com</code> 或 <code>test.example.com:3000</code>，实际要求请按当前控制台与接口文档核对；</li>
+<li><strong>工作台应用主页</strong>：配置用户点击应用后跳转的链接地址，配置后该应用即为主页型应用；</li>
+<li>**自定义菜单：**设置后表示应用为消息型工作台应用主页链接将失效，设置方式类似于公众号。</li>
+</ol>
+<p><a id="ZopWz"></a></p>
+<h2 id="section-3">访问令牌</h2>
+<p>访问令牌（access_token）是我们开发的第一步，我们在调用微信接口前，往往需要先获取令牌，然后才能“为所欲为” :- )。</p>
+<p>令牌只能通过企业ID（CorpID）+Secret来获取，CorpID的查看方式如下：</p>
+<p><img src="/article-library-site/media/1931c206caa94a610a.webp" alt="企业微信开发-自建应用配图 3" loading="lazy" decoding="async" /></p>
+<p><strong>每个企业号CorpID只有一个，但Secret却有几种，不同Secret获取到的令牌它的作用范围是不同的。</strong></p>
+<p>Secret分类如下：</p>
+<ul>
+<li><strong>应用Secret</strong>：点击“应用详情”就看到了</li>
+<li><strong>通讯录管理Secret</strong>：查看方式是“管理工具/通讯录同步”</li>
+<li><strong>管理组Secret</strong>：查看方式是“我的企业/权限管理/管理组”（你如果找不到也很正常，因为这是老用户才有的“待遇”，现已退出历史舞台，奸笑ing）。</li>
+</ul>
+<p><img src="/article-library-site/media/436e549de2ae0685a8.webp" alt="企业微信开发-自建应用配图 4" loading="lazy" decoding="async" /></p>
+<p>应用Secret</p>
+<p><img src="/article-library-site/media/cd0250d9deb448fb61.webp" alt="企业微信开发-自建应用配图 5" loading="lazy" decoding="async" /></p>
+<p>通讯录管理Secret</p>
+<p><img src="/article-library-site/media/b5b2783b82b9c6f1f4.webp" alt="企业微信开发-自建应用配图 6" loading="lazy" decoding="async" /></p>
+<p>曾经的管理组Secret</p>
+<p>获取令牌的接口是：</p>
+<p>GET <a href="https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=CORPID&amp;corpsecret=SECRECT">https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=CORPID&amp;corpsecret=SECRECT</a></p>
+<p>返回格式如下：</p>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#005CC5">  "errcode"</span><span style="color:#24292E">: </span><span style="color:#005CC5">0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">  "errmsg"</span><span style="color:#24292E">: </span><span style="color:#032F62">""</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">  "access_token"</span><span style="color:#24292E">: </span><span style="color:#032F62">"accesstoken000001"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">  "expires_in"</span><span style="color:#24292E">: </span><span style="color:#005CC5">7200</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>需要注意的是access_token具有时效性，超过7200（expires_in的值）秒后就会过期，又因为获取令牌的接口有访问频率的限制，所以你需要定时刷新access_token。</p>
+<p>详细文档请参考：<a href="https://work.weixin.qq.com/api/doc#10013">获取access_token - 企业微信</a>。</p>
+<p><a id="yQ7e0"></a></p>
+<h2 id="section-4">场景一：网页授权登录</h2>
+<p>参考文档：<a href="https://work.weixin.qq.com/api/doc#10028">网页授权登录 - 企业微信</a></p>
+<p>这是我们使用频率最高的一个场景，简单的说就是：如何在用户进入应用的时候获取到他的userid（或者更详细的信息）？</p>
+<p>授权登录使用OAuth2.0协议，先来看看微信官方提供的接入流程图：</p>
+<p><img src="/article-library-site/media/af5bf7bbf83ca7a725.webp" alt="企业微信开发-自建应用配图 7" loading="lazy" decoding="async" /></p>
+<p>总结下来就是三步：</p>
+<ol>
+<li>用户访问时先跳微信服务器，同时你需要告诉微信服务器一个跳转地址</li>
+<li>微信服务器先做验证，验证通过后回跳到你提供的地址，并同时带上一个跟用户信息相关的code</li>
+<li>你根据这个code再调用另一个接口就能获取到用户数据了，一般在后端服务器做处理</li>
+</ol>
+<p>第1，2步都是为了拿到code，第3步才是获取用户信息。</p>
+<p>假如我有一个主页型应用，基本信息如下：</p>
+<ul>
+<li>企业ID：wx10101</li>
+<li>可信域名：<a href="http://test.example.com:3000/">test.example.com:3000</a></li>
+<li>回调地址：<a href="https://test.example.com:3000/api/myredirect">https://test.example.com:3000/api/myredirect</a> ，回调地址一般为后端服务器</li>
+</ul>
+<p>那么生成的网页链接是这样的（该链接可设置为主页地址、菜单链接和推送消息的跳转链接）：</p>
+<p><a href="https://open.weixin.qq.com/connect/oauth2/authorize?appid=wx10101&amp;redirect%5C_uri=https%3A%2F%2Ftest.example.com%3A3000%2Fapi%2Fmyredirect&amp;response%5C_type=code&amp;scope=snsapi%5C_base#wechat%5C_redirect">https://open.weixin.qq.com/connect/oauth2/authorize?appid=wx10101&amp;redirect\_uri=https%3A%2F%2Ftest.example.com%3A3000%2Fapi%2Fmyredirect&amp;response\_type=code&amp;scope=snsapi\_base#wechat\_redirect</a></p>
+<p>这里有两点需要注意的地方：</p>
+<ol>
+<li>redirect_uri的值必须经过urlencode处理（可直接调用JS的全局函数encodeURIComponent）</li>
+<li>redirect_uri的host部分（即域名+端口）必须和可信域名配置一致</li>
+<li>如果你将一些信息从用户点击传递到回调地址，那么可以设置state参数（只有这一种传递方式）</li>
+</ol>
+<p>获取用户信息的接口是（注意code只能使用一次）：</p>
+<p>GET <a href="https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access%5C_token=ACCESS%5C_TOKEN&amp;code=CODE">https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access\_token=ACCESS\_TOKEN&amp;code=CODE</a></p>
+<p><strong>返回结果：</strong><br />a) 当用户为企业成员时（无论是否在应用可见范围之内）返回示例如下：</p>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#005CC5">   "errcode"</span><span style="color:#24292E">: </span><span style="color:#005CC5">0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "errmsg"</span><span style="color:#24292E">: </span><span style="color:#032F62">"ok"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "UserId"</span><span style="color:#24292E">:</span><span style="color:#032F62">"USERID"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "DeviceId"</span><span style="color:#24292E">:</span><span style="color:#032F62">"DEVICEID"</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<table><tbody><tr><td><p><strong>参数</strong></p></td><td><p><strong>说明</strong></p></td></tr><tr><td><p>errcode</p></td><td><p>返回码</p></td></tr><tr><td><p>errmsg</p></td><td><p>对返回码的文本描述内容</p></td></tr><tr><td><p>UserId</p></td><td><p>成员UserID。若需要获得用户详情信息，可调用通讯录接口：<a href="https://work.weixin.qq.com/api/doc/90000/90135/91023#10019">读取成员</a>。如果是互联企业或者企业互联，则返回的UserId格式如：CorpId/userid</p></td></tr><tr><td><p>DeviceId</p></td><td><p>手机设备号(由企业微信在安装时随机生成，删除重装会改变，升级不受影响)</p></td></tr></tbody></table><p>b) 非企业成员时，返回示例如下：</p>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#005CC5">   "errcode"</span><span style="color:#24292E">: </span><span style="color:#005CC5">0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "errmsg"</span><span style="color:#24292E">: </span><span style="color:#032F62">"ok"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "OpenId"</span><span style="color:#24292E">:</span><span style="color:#032F62">"OPENID"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "DeviceId"</span><span style="color:#24292E">:</span><span style="color:#032F62">"DEVICEID"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "external_userid"</span><span style="color:#24292E">:</span><span style="color:#032F62">"EXTERNAL_USERID"</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<table><tbody><tr><td><p><strong>参数</strong></p></td><td><p><strong>说明</strong></p></td></tr><tr><td><p>errcode</p></td><td><p>返回码</p></td></tr><tr><td><p>errmsg</p></td><td><p>对返回码的文本描述内容</p></td></tr><tr><td><p>OpenId</p></td><td><p>非企业成员的标识，对当前企业唯一。不超过64字节</p></td></tr><tr><td><p>DeviceId</p></td><td><p>手机设备号(由企业微信在安装时随机生成，删除重装会改变，升级不受影响)</p></td></tr><tr><td><p>external_userid</p></td><td><p>外部联系人id，当且仅当用户是企业的客户，且跟进人在应用的可见范围内时返回。如果是第三方应用调用，针对同一个客户，同一个服务商不同应用获取到的id相同</p></td></tr></tbody></table><p><strong>出错返回示例：</strong></p>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#005CC5">   "errcode"</span><span style="color:#24292E">: </span><span style="color:#005CC5">40029</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">   "errmsg"</span><span style="color:#24292E">: </span><span style="color:#032F62">"invalid code"</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p><a id="FbYG9"></a></p>
+<h2 id="section-5">场景二：扫码授权登录</h2>
+<p>参考文档：<a href="https://work.weixin.qq.com/api/doc#10719">扫码授权登录 - 企业微信</a></p>
+<p>我们这里只讨论Web网页扫码登录的场景，移动端扫码登录请参考官方文档。</p>
+<p>在开发扫码登录前，你需要先开启应用的网页接入功能，开启方式是点击“应用详情/企业微信授权登录/Web网页”，直接将可信域名的值复制过来设置即可。</p>
+<p>扫码登录与场景一类似，同样是OAuth2.0协议，也是先拿code再拿用户信息，交互流程图如下：</p>
+<p><img src="/article-library-site/media/f0e62058b143e52f82.webp" alt="企业微信开发-自建应用配图 8" loading="lazy" decoding="async" /></p>
+<p>假如我有以下基本信息：</p>
+<ul>
+<li>企业ID：wx10101</li>
+<li>应用ID：1000000</li>
+<li>可信域名：<a href="http://test.example.com:3000/">http://test.example.com:3000</a></li>
+<li>回调地址：<a href="https://test.example.com:3000/api/myredirect">https://test.example.com:3000/api/myredirect</a></li>
+</ul>
+<p>那么生成的扫码链接是这样的：</p>
+<p><a href="https://open.work.weixin.qq.com/wwopen/sso/qrConnect?appid=wx10101&amp;agentid=1000000&amp;redirect%5C_uri=https%3A%2F%2Ftest.example.com%3A3000%2Fapi%2Fmyredirect">https://open.work.weixin.qq.com/wwopen/sso/qrConnect?appid=wx10101&amp;agentid=1000000&amp;redirect\_uri=https%3A%2F%2Ftest.example.com%3A3000%2Fapi%2Fmyredirect</a></p>
+<p>用户打开该链接后，就会出现一个二维码，用户使用企业微信扫码后，就会跳转到回调地址并带上授权code，通过code获取用户信息的接口为：</p>
+<p>GET <a href="https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access%5C_token=ACCESS%5C_TOKEN&amp;code=CODE">https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access\_token=ACCESS\_TOKEN&amp;code=CODE</a></p>
+<p><a id="ojuas"></a></p>
+<h2 id="section-6">场景三：素材管理</h2>
+<p>参考文档：<a href="https://work.weixin.qq.com/api/doc#10112">素材管理 - 企业微信</a></p>
+<p>素材管理比较简单，直接调用微信接口即可，不过需要注意的是，目前企业微信只开放了临时素材的管理接口（今天是2018-05-04），所有通过接口上传的media_id仅三天内有效。</p>
+<p>后台管理页面中的资源标识不代表公开 API 承诺长期可用。应用应按正式素材接口处理上传、有效期与重新获取，避免依赖后台页面的内部请求。</p>
+<p><a id="Ef3X0"></a></p>
+<h2 id="section-7">场景四：消息推送</h2>
+<p>参考文档：<a href="https://work.weixin.qq.com/api/doc#10167">发送应用消息 - 企业微信</a></p>
+<p>本质上就是调用一个接口而已。</p>
+<p>需要注意的是，消息都是以应用为单位显示的（在发送消息的时候会指定agentid），所以你调用接口所使用的access_token必须是通过该应用的Secret获得的。</p>
+<p>如果你希望对消息内容进行排版（用html的方式），且用户点击后，你希望跳转到一个网页地址去，我推荐你使用“文本卡片消息”。</p>
+<p><img src="/article-library-site/media/4c18154cbb8e24d8e6.webp" alt="企业微信开发-自建应用配图 10" loading="lazy" decoding="async" /></p>
+<p>我们之前还遇到过一个场景是，希望用户在点击消息后，跳转到其他应用去，但遗憾的是目前微信还不支持跨应用跳转。</p>
+<p><a id="trZex"></a></p>
+<h2 id="section-8">场景五：JS-SDK</h2>
+<p>参考文档：<a href="https://work.weixin.qq.com/api/doc#10029">JS-SDK - 企业微信</a></p>
+<p>要用JS-SDK，客户端必须要进行SDK初始化；</p>
+<p>要进行初始化，必须要有个签名；</p>
+<p>要有个签名，必须要有个jsapi_ticket。</p>
+<p>所以我们先说说jsapi_ticket。jsapi_ticket其实跟access_token类似，它也会过期，也有频率限制，所以我们也需要对jsapi_ticket进行定时刷新，获取jsapi_ticket的接口如下：</p>
+<p>GET <a href="https://qyapi.weixin.qq.com/cgi-bin/get%5C_jsapi%5C_ticket?access%5C_token=ACCESS%5C_TOKEN">https://qyapi.weixin.qq.com/cgi-bin/get\_jsapi\_ticket?access\_token=ACCESS\_TOKEN</a></p>
+<p>接下来是签名，分享一个node的签名算法供参考：</p>
+<div class="code-example"><div class="code-toolbar"><span>javascriptconst</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>const qs = require('querystring');</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>/**</span></span>
+<span class="line"><span> * 签名生成算法</span></span>
+<span class="line"><span> * @param {*} query</span></span>
+<span class="line"><span> */</span></span>
+<span class="line"><span>function sign(query) {</span></span>
+<span class="line"><span>  // 1.排序</span></span>
+<span class="line"><span>  const obj = qs.parse(query);</span></span>
+<span class="line"><span>  const message = Object.keys(obj).sort().map(key =&gt; `${key}=${obj[key]}`).join('&amp;');</span></span>
+<span class="line"><span>  // 2.加密</span></span>
+<span class="line"><span>  const signature = crypto.createHash('sha1').update(message, 'utf8').digest('hex');</span></span>
+<span class="line"><span>  return signature;</span></span>
+<span class="line"><span>}</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>// 测试</span></span>
+<span class="line"><span>const query = 'noncestr=Wm3WZYTPz0wzccnW&amp;jsapi_ticket=EXAMPLE_TICKET&amp;timestamp=1414587457&amp;url=http://mp.weixin.qq.com?params=value';</span></span>
+<span class="line"><span>console.log(sign(query));</span></span>
+<span class="line"><span>// 示例票据仅用于演示，结果以实际参数为准。</span></span></code></pre></div>
+<p>如果你不确定你的算法是否正确，可以去微信提供的<a href="http://work.weixin.qq.com/api/jsapisign">在线签名工具</a>进行验证。</p>
+<p>有了签名以后，我们就可以进行SDK初始化了，初始化前需要引入js文件：</p>
+<p><a href="http://res.wx.qq.com/open/js/jweixin-1.2.0.js%EF%BC%88%E6%94%AF%E6%8C%81https%EF%BC%89">http://res.wx.qq.com/open/js/jweixin-1.2.0.js（支持https）</a></p>
+<p>然后开始执行初始化：</p>
+<div class="code-example"><div class="code-toolbar"><span>javascriptwx.config({</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>  beta: true,    // 必须这么写，否则wx.invoke调用形式的jsapi会有问题</span></span>
+<span class="line"><span>  debug: true,   // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。</span></span>
+<span class="line"><span>  appId: '',     // 必填，企业微信的corpID</span></span>
+<span class="line"><span>  timestamp: '', // 必填，生成签名的时间戳</span></span>
+<span class="line"><span>  nonceStr: '',  // 必填，生成签名的随机串</span></span>
+<span class="line"><span>  signature: '', // 必填，签名，见附录1</span></span>
+<span class="line"><span>  jsApiList: []  // 必填，需要使用的JS接口列表，所有JS接口列表见附录2</span></span>
+<span class="line"><span>});</span></span>
+<span class="line"><span>// 成功回调ready</span></span>
+<span class="line"><span>wx.ready(function(){</span></span>
+<span class="line"><span>    // config信息验证后会执行ready方法，所有接口调用都必须在config接口获得结果之后，config是一个客户端的异步操作，所以如果需要在页面加载时就调用相关接口，则须把相关接口放在ready函数中调用来确保正确执行。对于用户触发时才调用的接口，则可以直接调用，不需要放在ready函数中。</span></span>
+<span class="line"><span>});</span></span>
+<span class="line"><span>// 失败回调error</span></span>
+<span class="line"><span>wx.error(function(res){</span></span>
+<span class="line"><span>    // config信息验证失败会执行error函数，如签名过期导致验证失败，具体错误信息可以打开config的debug模式查看，也可以在返回的res参数中查看，对于SPA可以在这里更新签名。</span></span>
+<span class="line"><span>});</span></span></code></pre></div>
+<p>这里需要注意的是所有参数都是大小写敏感的，比如后端签名时参数是noncestr，但是前端初始化时是nonceStr。</p>
+<p>初始化成功后，就可以尽情地浪了。使用企业微信打开以下链接即可体验官方提供的Demo页面：</p>
+<p><a href="http://work.weixin.qq.com/api/jsapidemo">http://work.weixin.qq.com/api/jsapidemo</a> (二维码自动识别)</p>
+<p><a id="Of1Tc"></a></p>
+<h2 id="section-9">最后说两句</h2>
+<ol>
+<li>严格按照文档中要求的去做会少栽很多坑，不要看漏任何一个细节，例如大小写；</li>
+<li>如果你已经按照文档要求去做了，还是未达到理想效果，那你可以安装一个开发者工具，尝试下从控制台输出信息去进行调试（微信的开发者工具是可以模拟整个微信环境的）；</li>
+<li>如果还是解决不了你的问题，那你就直接找客服吧（企业微信的客服反馈还是很及时的，在企业微信客户端的客服对话框中，输入“人工”即可）。</li>
+</ol>
+<p>企业微信客服入口</p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/wxjava-miniapp-code-image/"><span>同分类 · 上一篇</span><strong>WxJava 生成小程序码并返回图片流</strong></a><a href="/article-library-site/tech/blockchain-notes/" class="next-article"><span>同分类 · 下一篇</span><strong>区块链与 Solidity 学习资料</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

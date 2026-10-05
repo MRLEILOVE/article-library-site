@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Spring Boot 2.0 与 Redisson 3.11.0 的 Redis 集群接入记录，包含 YAML 和 Java 配置。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="Spring Boot 2.0 + Redisson + Redis 集群"><meta property="og:description" content="Spring Boot 2.0 与 Redisson 3.11.0 的 Redis 集群接入记录，包含 YAML 和 Java 配置。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>Spring Boot 2.0 + Redisson + Redis 集群 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>中间件与数据</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">0 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 中间件与数据</p><h1 id="article-title">Spring Boot 2.0 + Redisson + Redis 集群</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 9 分钟</span></div><p class="tech-dates">原笔记 2021-05-27<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>Spring Boot 2.0 与 Redisson 3.11.0 的 Redis 集群接入记录，包含 YAML 和 Java 配置。</p>
+<blockquote>
+<p>版本说明：本文对应 Spring Boot 2.0、Redisson 3.11.0 的旧环境，配置键不保证适用于新版。原代码的宽泛 Jackson 默认类型配置已去掉；异构数据应设计明确类型，而非直接反序列化不可信类型名。</p>
+</blockquote>
+<p>redisson Github wiki文档：<a href="https://github.com/redisson/redisson/wiki/">https://github.com/redisson/redisson/wiki/</a></p>
+<ol>
+<li>引入redssion 依赖</li>
+</ol>
+<div class="code-example"><div class="code-toolbar"><span>xml</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">&lt;</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">   &lt;</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;org.redisson&lt;/</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">   &lt;</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;redisson-spring-boot-starter&lt;/</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">   &lt;</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;3.11.0&lt;/</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">&lt;/</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span></code></pre></div>
+<ol>
+<li>redssion 集群配置</li>
+</ol>
+<p>有两种方式配置：</p>
+<ol>
+<li>通过YAML文件配置集群模式</li>
+<li>程序化配置方法</li>
+</ol>
+<p>这里演示yml配置方式：</p>
+<p>在resource下创建 redssion.yml文件 ，名称随便起，后缀可以是yml，properties，xml，当前使用yml文件进行配置</p>
+<div class="code-example"><div class="code-toolbar"><span>yaml</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#22863A">clusterServersConfig</span><span style="color:#24292E">:</span></span>
+<span class="line"><span style="color:#6A737D">  # 连接空闲超时，单位：毫秒 默认10000</span></span>
+<span class="line"><span style="color:#22863A">  idleConnectionTimeout</span><span style="color:#24292E">: </span><span style="color:#005CC5">10000</span></span>
+<span class="line"><span style="color:#22863A">  pingTimeout</span><span style="color:#24292E">: </span><span style="color:#005CC5">1000</span></span>
+<span class="line"><span style="color:#6A737D">  # 同任何节点建立连接时的等待超时。时间单位是毫秒 默认10000</span></span>
+<span class="line"><span style="color:#22863A">  connectTimeout</span><span style="color:#24292E">: </span><span style="color:#005CC5">10000</span></span>
+<span class="line"><span style="color:#6A737D">  # 等待节点回复命令的时间。该时间从命令发送成功时开始计时。默认3000</span></span>
+<span class="line"><span style="color:#22863A">  timeout</span><span style="color:#24292E">: </span><span style="color:#005CC5">3000</span></span>
+<span class="line"><span style="color:#6A737D">  # 命令失败重试次数</span></span>
+<span class="line"><span style="color:#22863A">  retryAttempts</span><span style="color:#24292E">: </span><span style="color:#005CC5">3</span></span>
+<span class="line"><span style="color:#6A737D">  # 命令重试发送时间间隔，单位：毫秒</span></span>
+<span class="line"><span style="color:#22863A">  retryInterval</span><span style="color:#24292E">: </span><span style="color:#005CC5">1500</span></span>
+<span class="line"><span style="color:#6A737D">  # 重新连接时间间隔，单位：毫秒</span></span>
+<span class="line"><span style="color:#22863A">  reconnectionTimeout</span><span style="color:#24292E">: </span><span style="color:#005CC5">3000</span></span>
+<span class="line"><span style="color:#6A737D">  # 执行失败最大次数</span></span>
+<span class="line"><span style="color:#22863A">  failedAttempts</span><span style="color:#24292E">: </span><span style="color:#005CC5">3</span></span>
+<span class="line"><span style="color:#6A737D">  # 密码</span></span>
+<span class="line"><span style="color:#22863A">  password</span><span style="color:#24292E">: </span><span style="color:#032F62">CHANGE_ME</span></span>
+<span class="line"><span style="color:#6A737D">  # 单个连接最大订阅数量</span></span>
+<span class="line"><span style="color:#22863A">  subscriptionsPerConnection</span><span style="color:#24292E">: </span><span style="color:#005CC5">5</span></span>
+<span class="line"><span style="color:#22863A">  clientName</span><span style="color:#24292E">: </span><span style="color:#005CC5">null</span></span>
+<span class="line"><span style="color:#6A737D">  # loadBalancer 负载均衡算法类的选择</span></span>
+<span class="line"><span style="color:#22863A">  loadBalancer</span><span style="color:#24292E">: </span><span style="color:#D73A49">!&lt;org.redisson.connection.balancer.RoundRobinLoadBalancer&gt;</span><span style="color:#24292E"> {}</span></span>
+<span class="line"><span style="color:#6A737D">  #从节点发布和订阅连接的最小空闲连接数</span></span>
+<span class="line"><span style="color:#22863A">  slaveSubscriptionConnectionMinimumIdleSize</span><span style="color:#24292E">: </span><span style="color:#005CC5">1</span></span>
+<span class="line"><span style="color:#6A737D">  #从节点发布和订阅连接池大小 默认值50</span></span>
+<span class="line"><span style="color:#22863A">  slaveSubscriptionConnectionPoolSize</span><span style="color:#24292E">: </span><span style="color:#005CC5">50</span></span>
+<span class="line"><span style="color:#6A737D">  # 从节点最小空闲连接数 默认值32</span></span>
+<span class="line"><span style="color:#22863A">  slaveConnectionMinimumIdleSize</span><span style="color:#24292E">: </span><span style="color:#005CC5">32</span></span>
+<span class="line"><span style="color:#6A737D">  # 从节点连接池大小 默认64</span></span>
+<span class="line"><span style="color:#22863A">  slaveConnectionPoolSize</span><span style="color:#24292E">: </span><span style="color:#005CC5">64</span></span>
+<span class="line"><span style="color:#6A737D">  # 主节点最小空闲连接数 默认32</span></span>
+<span class="line"><span style="color:#22863A">  masterConnectionMinimumIdleSize</span><span style="color:#24292E">: </span><span style="color:#005CC5">32</span></span>
+<span class="line"><span style="color:#6A737D">  # 主节点连接池大小 默认64</span></span>
+<span class="line"><span style="color:#22863A">  masterConnectionPoolSize</span><span style="color:#24292E">: </span><span style="color:#005CC5">64</span></span>
+<span class="line"><span style="color:#6A737D">  # 订阅操作的负载均衡模式</span></span>
+<span class="line"><span style="color:#22863A">  subscriptionMode</span><span style="color:#24292E">: </span><span style="color:#032F62">SLAVE</span></span>
+<span class="line"><span style="color:#6A737D">  # 只在从服务器读取</span></span>
+<span class="line"><span style="color:#22863A">  readMode</span><span style="color:#24292E">: </span><span style="color:#032F62">SLAVE</span></span>
+<span class="line"><span style="color:#6A737D">  # 集群地址</span></span>
+<span class="line"><span style="color:#22863A">  nodeAddresses</span><span style="color:#24292E">:</span></span>
+<span class="line"><span style="color:#24292E">    - </span><span style="color:#032F62">"redis://192.0.2.128:30001"</span></span>
+<span class="line"><span style="color:#24292E">    - </span><span style="color:#032F62">"redis://192.0.2.128:30002"</span></span>
+<span class="line"><span style="color:#24292E">    - </span><span style="color:#032F62">"redis://192.0.2.128:30003"</span></span>
+<span class="line"><span style="color:#24292E">    - </span><span style="color:#032F62">"redis://192.0.2.128:30004"</span></span>
+<span class="line"><span style="color:#24292E">    - </span><span style="color:#032F62">"redis://192.0.2.128:30005"</span></span>
+<span class="line"><span style="color:#24292E">    - </span><span style="color:#032F62">"redis://192.0.2.128:30006"</span></span>
+<span class="line"><span style="color:#6A737D">  # 对Redis集群节点状态扫描的时间间隔。单位是毫秒。默认1000</span></span>
+<span class="line"><span style="color:#22863A">  scanInterval</span><span style="color:#24292E">: </span><span style="color:#005CC5">1000</span></span>
+<span class="line"><span style="color:#6A737D">  #这个线程池数量被所有RTopic对象监听器，RRemoteService调用者和RExecutorService任务共同共享。默认2</span></span>
+<span class="line"><span style="color:#22863A">threads</span><span style="color:#24292E">: </span><span style="color:#005CC5">0</span></span>
+<span class="line"><span style="color:#6A737D">#这个线程池数量是在一个Redisson实例内，被其创建的所有分布式数据类型和服务，以及底层客户端所一同共享的线程池里保存的线程数量。默认2</span></span>
+<span class="line"><span style="color:#22863A">nettyThreads</span><span style="color:#24292E">: </span><span style="color:#005CC5">0</span></span>
+<span class="line"><span style="color:#6A737D"># 编码方式 默认org.redisson.codec.JsonJacksonCodec</span></span>
+<span class="line"><span style="color:#22863A">codec</span><span style="color:#24292E">: </span><span style="color:#D73A49">!&lt;org.redisson.codec.JsonJacksonCodec&gt;</span><span style="color:#24292E"> {}</span></span>
+<span class="line"><span style="color:#6A737D">#传输模式</span></span>
+<span class="line"><span style="color:#22863A">transportMode</span><span style="color:#24292E">: </span><span style="color:#032F62">NIO</span></span>
+<span class="line"><span style="color:#6A737D"># 分布式锁自动过期时间，防止死锁，默认30000</span></span>
+<span class="line"><span style="color:#22863A">lockWatchdogTimeout</span><span style="color:#24292E">: </span><span style="color:#005CC5">30000</span></span>
+<span class="line"><span style="color:#6A737D"># 通过该参数来修改是否按订阅发布消息的接收顺序出来消息，如果选否将对消息实行并行处理，该参数只适用于订阅发布消息的情况, 默认true</span></span>
+<span class="line"><span style="color:#22863A">keepPubSubOrder</span><span style="color:#24292E">: </span><span style="color:#005CC5">true</span></span>
+<span class="line"><span style="color:#6A737D"># 用来指定高性能引擎的行为。由于该变量值的选用与使用场景息息相关（NORMAL除外）我们建议对每个参数值都进行尝试。</span></span>
+<span class="line"><span style="color:#6A737D">#</span></span>
+<span class="line"><span style="color:#6A737D">#该参数仅限于Redisson PRO版本。</span></span>
+<span class="line"><span style="color:#6A737D">#performanceMode: HIGHER_THROUGHPUT</span></span></code></pre></div>
+<ol>
+<li>redssion 初始化+ RedisTemplate</li>
+</ol>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Configuration</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> RedissonConfig</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Bean</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> RedissonClient </span><span style="color:#6F42C1">redisson</span><span style="color:#24292E">() </span><span style="color:#D73A49">throws</span><span style="color:#24292E"> IOException {</span></span>
+<span class="line"><span style="color:#24292E">        Config config </span><span style="color:#D73A49">=</span><span style="color:#24292E"> Config.</span><span style="color:#6F42C1">fromYAML</span><span style="color:#24292E">(</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> ClassPathResource</span><span style="color:#24292E">(</span><span style="color:#032F62">"redisson.yml"</span><span style="color:#24292E">).</span><span style="color:#6F42C1">getInputStream</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">        RedissonClient redisson </span><span style="color:#D73A49">=</span><span style="color:#24292E"> Redisson.</span><span style="color:#6F42C1">create</span><span style="color:#24292E">(config);</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> redisson;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Bean</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> RedissonConnectionFactory </span><span style="color:#6F42C1">redissonConnectionFactory</span><span style="color:#24292E">(RedissonClient </span><span style="color:#E36209">redisson</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> RedissonConnectionFactory</span><span style="color:#24292E">(redisson);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Bean</span><span style="color:#24292E">(</span><span style="color:#032F62">"redisTemplate"</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> RedisTemplate </span><span style="color:#6F42C1">getRedisTemplate</span><span style="color:#24292E">(RedisConnectionFactory </span><span style="color:#E36209">redissonConnectionFactory</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        RedisTemplate&lt;</span><span style="color:#D73A49">Object</span><span style="color:#24292E">, </span><span style="color:#D73A49">Object</span><span style="color:#24292E">&gt; redisTemplate </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> RedisTemplate</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">        redisTemplate.</span><span style="color:#6F42C1">setConnectionFactory</span><span style="color:#24292E">(redissonConnectionFactory);</span></span>
+<span class="line"><span style="color:#24292E">        redisTemplate.</span><span style="color:#6F42C1">setValueSerializer</span><span style="color:#24292E">(</span><span style="color:#6F42C1">valueSerializer</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">        redisTemplate.</span><span style="color:#6F42C1">setKeySerializer</span><span style="color:#24292E">(</span><span style="color:#6F42C1">keySerializer</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">        redisTemplate.</span><span style="color:#6F42C1">setHashKeySerializer</span><span style="color:#24292E">(</span><span style="color:#6F42C1">keySerializer</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">        redisTemplate.</span><span style="color:#6F42C1">setHashValueSerializer</span><span style="color:#24292E">(</span><span style="color:#6F42C1">valueSerializer</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> redisTemplate;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Bean</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> RedisSerializer </span><span style="color:#6F42C1">keySerializer</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> StringRedisSerializer</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Bean</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> RedisSerializer </span><span style="color:#6F42C1">valueSerializer</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#24292E">        Jackson2JsonRedisSerializer jackson2JsonRedisSerializer </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> Jackson2JsonRedisSerializer</span><span style="color:#24292E">(Object.class);</span></span>
+<span class="line"><span style="color:#24292E">        ObjectMapper objectMapper </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> ObjectMapper</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">        objectMapper.</span><span style="color:#6F42C1">setVisibility</span><span style="color:#24292E">(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);</span></span>
+<span class="line"><span style="color:#6A737D">        // 使用明确的业务类型设计序列化，不启用宽泛的默认多态类型。</span></span>
+<span class="line"><span style="color:#24292E">        jackson2JsonRedisSerializer.</span><span style="color:#6F42C1">setObjectMapper</span><span style="color:#24292E">(objectMapper);</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> jackson2JsonRedisSerializer;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>原文链接：<a href="https://blog.csdn.net/baidu_38558076/article/details/90707985">https://blog.csdn.net/baidu_38558076/article/details/90707985</a></p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/zookeeper-introduction/"><span>同分类 · 上一篇</span><strong>ZooKeeper 入门笔记</strong></a><a href="/article-library-site/tech/" class="next-article"><span>继续阅读</span><strong>浏览全部技术分享</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="MyBatis-Plus 自动填充字段的配置与示例，记录创建和修改信息的统一处理。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="MyBatis-Plus 自动填充字段"><meta property="og:description" content="MyBatis-Plus 自动填充字段的配置与示例，记录创建和修改信息的统一处理。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>MyBatis-Plus 自动填充字段 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">0 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">MyBatis-Plus 自动填充字段</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 11 分钟</span></div><p class="tech-dates">原笔记 2021-10-09<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>MyBatis-Plus 自动填充字段的配置与示例，记录创建和修改信息的统一处理。</p>
+<blockquote>
+<p>示例说明：基类、请求上下文与当前用户的获取方式依赖业务项目；自动填充处理器需要按实际实体字段类型配置。</p>
+</blockquote>
+<p>实体基类，每个实体都要有的属性</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.domain.entity;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.FieldFill;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.IdType;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.TableField;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.TableId;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.AllArgsConstructor;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.Data;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.NoArgsConstructor;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.experimental.SuperBuilder;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.ibatis.type.JdbcType;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.io.Serializable;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.time.LocalDateTime;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 实体基类，每个实体都要有的属性</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">NoArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">SuperBuilder</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> BaseEntity</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> Serializable</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * The constant serialVersionUID.</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> final</span><span style="color:#D73A49"> long</span><span style="color:#24292E"> serialVersionUID </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> -</span><span style="color:#005CC5">6539444742613033263L</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 主键</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">TableId</span><span style="color:#24292E">(</span><span style="color:#005CC5">value</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "id"</span><span style="color:#24292E">, </span><span style="color:#005CC5">type</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> IdType.ASSIGN_ID)</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long id;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 创建人</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">TableField</span><span style="color:#24292E">(</span><span style="color:#005CC5">value</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "created_by"</span><span style="color:#24292E">, </span><span style="color:#005CC5">fill</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> FieldFill.INSERT, </span><span style="color:#005CC5">jdbcType</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> JdbcType.BIGINT)</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long createdBy;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 创建时间</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">TableField</span><span style="color:#24292E">(</span><span style="color:#005CC5">value</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "created_time"</span><span style="color:#24292E">, </span><span style="color:#005CC5">fill</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> FieldFill.INSERT, </span><span style="color:#005CC5">jdbcType</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> JdbcType.DATETIMEOFFSET)</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> LocalDateTime createdTime;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 修改人</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">TableField</span><span style="color:#24292E">(</span><span style="color:#005CC5">value</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "updated_by"</span><span style="color:#24292E">, </span><span style="color:#005CC5">fill</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> FieldFill.INSERT_UPDATE, </span><span style="color:#005CC5">jdbcType</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> JdbcType.BIGINT)</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long updatedBy;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 修改时间</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">TableField</span><span style="color:#24292E">(</span><span style="color:#005CC5">value</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "updated_time"</span><span style="color:#24292E">, </span><span style="color:#005CC5">fill</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> FieldFill.INSERT_UPDATE, </span><span style="color:#005CC5">jdbcType</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> JdbcType.DATETIMEOFFSET)</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> LocalDateTime updatedTime;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.config;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.AllArgsConstructor;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.Getter;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.extern.slf4j.Slf4j;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.commons.lang3.StringUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.ibatis.reflection.MetaObject;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.stereotype.Component;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.web.context.request.RequestContextHolder;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.web.context.request.ServletRequestAttributes;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> javax.servlet.http.HttpServletRequest;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.time.LocalDateTime;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.Objects;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * MP自动填充参数</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2021 -10-9 9:03</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Slf4j</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Component</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> MetaObjectHandlerConfig</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> MetaObjectHandler</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 插入时填充</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> metaObject</span><span style="color:#6A737D"> the meta object</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> insertFill</span><span style="color:#24292E">(MetaObject </span><span style="color:#E36209">metaObject</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        log.</span><span style="color:#6F42C1">info</span><span style="color:#24292E">(</span><span style="color:#032F62">"start insert fill ...."</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#6A737D">        // 填充创建人id</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">fillId</span><span style="color:#24292E">(metaObject, IdType.CREATOR_ID);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 填充创建时间</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">fillDate</span><span style="color:#24292E">(metaObject, DateType.CREATE_TIME);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 填充修改人id</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">fillId</span><span style="color:#24292E">(metaObject, IdType.MODIFIER_ID);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 填充修改时间</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">fillDate</span><span style="color:#24292E">(metaObject, DateType.UPDATE_TIME);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 更新时填充</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> metaObject</span><span style="color:#6A737D"> the meta object</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> updateFill</span><span style="color:#24292E">(MetaObject </span><span style="color:#E36209">metaObject</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        log.</span><span style="color:#6F42C1">info</span><span style="color:#24292E">(</span><span style="color:#032F62">"start update fill ...."</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#6A737D">        // 填充修改人id</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">fillId</span><span style="color:#24292E">(metaObject, IdType.MODIFIER_ID);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 填充修改时间</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">fillDate</span><span style="color:#24292E">(metaObject, DateType.UPDATE_TIME);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * id类型</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Getter</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> enum</span><span style="color:#6F42C1"> IdType</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * 创建人属性名称</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#005CC5">        CREATOR_ID</span><span style="color:#24292E">(</span><span style="color:#032F62">"createdBy"</span><span style="color:#24292E">),</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * 修改人属性名称</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#005CC5">        MODIFIER_ID</span><span style="color:#24292E">(</span><span style="color:#032F62">"updatedBy"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        ;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * The Column name.</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#D73A49">        private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> String columnName;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 时间类型</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Getter</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> enum</span><span style="color:#6F42C1"> DateType</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * 创建时间属性名称</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#005CC5">        CREATE_TIME</span><span style="color:#24292E">(</span><span style="color:#032F62">"createdTime"</span><span style="color:#24292E">),</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * 修改时间属性名称</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#005CC5">        UPDATE_TIME</span><span style="color:#24292E">(</span><span style="color:#032F62">"updatedTime"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        ;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * The Column name.</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#D73A49">        private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> String columnName;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 填充员工id</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> metaObject</span><span style="color:#6A737D"> the meta object</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> fillId</span><span style="color:#24292E">(MetaObject </span><span style="color:#E36209">metaObject</span><span style="color:#24292E">, IdType </span><span style="color:#E36209">idType</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#D73A49"> boolean</span><span style="color:#24292E"> hasSetter </span><span style="color:#D73A49">=</span><span style="color:#24292E"> metaObject.</span><span style="color:#6F42C1">hasSetter</span><span style="color:#24292E">(idType.</span><span style="color:#6F42C1">getColumnName</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6A737D">        // 有 setter 方法才进行填充</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (</span><span style="color:#D73A49">!</span><span style="color:#24292E">hasSetter) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> Object fieldVal </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">getFieldValByName</span><span style="color:#24292E">(idType.</span><span style="color:#6F42C1">getColumnName</span><span style="color:#24292E">(), metaObject);</span></span>
+<span class="line"><span style="color:#6A737D">        // 属性为空才自动填充</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (Objects.</span><span style="color:#6F42C1">nonNull</span><span style="color:#24292E">(fieldVal)) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 获取登录用户id, 0代表系统，有时数据是定时任务修改的，则为0</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> Long loginUserId </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">getLoginUserId</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 填充对应属性</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">strictInsertFill</span><span style="color:#24292E">(metaObject, idType.</span><span style="color:#6F42C1">getColumnName</span><span style="color:#24292E">(), Long.class, loginUserId);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 填充时间</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> metaObject</span><span style="color:#6A737D"> the meta object</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> fillDate</span><span style="color:#24292E">(MetaObject </span><span style="color:#E36209">metaObject</span><span style="color:#24292E">, DateType </span><span style="color:#E36209">dateType</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#D73A49"> boolean</span><span style="color:#24292E"> hasSetter </span><span style="color:#D73A49">=</span><span style="color:#24292E"> metaObject.</span><span style="color:#6F42C1">hasSetter</span><span style="color:#24292E">(dateType.</span><span style="color:#6F42C1">getColumnName</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6A737D">        // 有 setter 方法才进行填充</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (</span><span style="color:#D73A49">!</span><span style="color:#24292E">hasSetter) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> Object fieldVal </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">getFieldValByName</span><span style="color:#24292E">(dateType.</span><span style="color:#6F42C1">getColumnName</span><span style="color:#24292E">(), metaObject);</span></span>
+<span class="line"><span style="color:#6A737D">        // 属性为空才自动填充</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (Objects.</span><span style="color:#6F42C1">nonNull</span><span style="color:#24292E">(fieldVal)) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 填充对应属性</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">strictInsertFill</span><span style="color:#24292E">(metaObject, dateType.</span><span style="color:#6F42C1">getColumnName</span><span style="color:#24292E">(), LocalDateTime.class, LocalDateTime.</span><span style="color:#6F42C1">now</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 模拟获取登录用户id</span></span>
+<span class="line"><span style="color:#6A737D">     * &lt;br/&gt;</span></span>
+<span class="line"><span style="color:#6A737D">     * 默认为0，代表系统</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the login user id</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long </span><span style="color:#6F42C1">getLoginUserId</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#6A737D">        // 模拟从请求头中获取jwt token</span></span>
+<span class="line"><span style="color:#24292E">        HttpServletRequest request </span><span style="color:#D73A49">=</span><span style="color:#24292E"> ((ServletRequestAttributes) (RequestContextHolder.</span><span style="color:#6F42C1">currentRequestAttributes</span><span style="color:#24292E">())).</span><span style="color:#6F42C1">getRequest</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> String token </span><span style="color:#D73A49">=</span><span style="color:#24292E"> request.</span><span style="color:#6F42C1">getHeader</span><span style="color:#24292E">(</span><span style="color:#032F62">"token"</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (StringUtils.</span><span style="color:#6F42C1">isEmpty</span><span style="color:#24292E">(token)) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#005CC5"> 0L</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#6A737D">        // 正式环境应该从Redis缓存或者jwt中获取</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#005CC5"> 1L</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/mapstruct-mapping/"><span>同分类 · 上一篇</span><strong>MapStruct 对象映射工具</strong></a><a href="/article-library-site/tech/spring-boot-enums/" class="next-article"><span>同分类 · 下一篇</span><strong>Spring Boot 中的枚举使用</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="从架构、数据模型到表设计，整理 StarRocks 入门阶段的学习笔记。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="StarRocks 入门"><meta property="og:description" content="从架构、数据模型到表设计，整理 StarRocks 入门阶段的学习笔记。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>StarRocks 入门 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>中间件与数据</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">20 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">基础概念</a><a href="#section-2" style="--indent:1">一、什么是StarRocks？</a><a href="#section-3" style="--indent:1">二、适用场景</a><a href="#section-4" style="--indent:2">OLAP 多维分析：</a><a href="#section-5" style="--indent:2">实时数据仓库：</a><a href="#section-6" style="--indent:2">高并发查询：</a><a href="#section-7" style="--indent:2">统一分析 ：</a><a href="#section-8" style="--indent:1">三、系统架构</a><a href="#section-9" style="--indent:2">系统架构图</a><a href="#section-10" style="--indent:2">数据管理</a><a href="#section-11" style="--indent:1">四、StarRocks表设计</a><a href="#section-12" style="--indent:2">列式存储</a><a href="#section-13" style="--indent:2">稀疏索引</a><a href="#section-14" style="--indent:2">加速数据处理</a><a href="#section-15" style="--indent:1">五、四种数据模型</a><a href="#section-16" style="--indent:2">明细模型</a><a href="#section-17" style="--indent:2">聚合模型</a><a href="#section-18" style="--indent:2">更新模型</a><a href="#section-19" style="--indent:2">主键模型</a><a href="#section-20" style="--indent:1">六、语法说明</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 中间件与数据</p><h1 id="article-title">StarRocks 入门</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 29 分钟</span></div><p class="tech-dates">原笔记 2022-10-20<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>从架构、数据模型到表设计，整理 StarRocks 入门阶段的学习笔记。</p>
+<blockquote>
+<p>阅读说明：本文保留原学习阶段的架构与表设计笔记。具体数据模型能力、限制和配置项请结合所用 StarRocks 版本核对。</p>
+</blockquote>
+<p><a id="EKcAj"></a></p>
+<h2 id="section-1">基础概念</h2>
+<p><a id="H9Mdq"></a></p>
+<h3 id="section-2">一、什么是StarRocks？</h3>
+<p>StarRocks 是一款高性能分析型数据仓库，使用向量化、MPP 架构、可实时更新的列式存储引擎等技术实现多维、实时、高并发的数据分析。</p>
+<p>官网：<a href="https://docs.starrocks.io/zh-cn/">https://docs.starrocks.io/zh-cn/</a></p>
+<p><a id="vfCHW"></a></p>
+<h3 id="section-3">二、适用场景</h3>
+<p>StarRocks 可以满足企业级用户的多种分析需求，包括 OLAP 多维分析、定制报表、实时数据分析和 Ad-hoc 数据分析等。</p>
+<p><a id="a7ry6"></a></p>
+<h4 id="section-4">OLAP 多维分析：</h4>
+<ul>
+<li>用户画像、标签分析、圈人</li>
+<li>用户行为分析</li>
+<li>财务报表</li>
+<li>业务问题探查分析</li>
+<li>高维业务指标报表</li>
+<li>自助式报表平台</li>
+<li>系统监控分析</li>
+<li>跨主题业务分析</li>
+</ul>
+<p><a id="Y7UqV"></a></p>
+<h4 id="section-5">实时数据仓库：</h4>
+<ul>
+<li>电商大促数据分析</li>
+<li>物流行业的运单分析</li>
+<li>金融行业绩效分析、指标计算</li>
+<li>直播质量分析</li>
+<li>广告投放分析</li>
+<li>管理驾驶舱</li>
+<li>探针分析APM（Application Performance Management）</li>
+</ul>
+<p><a id="xHhWq"></a></p>
+<h4 id="section-6">高并发查询：</h4>
+<ul>
+<li>广告主报表分析</li>
+<li>零售行业渠道人员分析</li>
+<li>SaaS 行业面向用户分析报表</li>
+<li>Dashbroad 多页面分析</li>
+</ul>
+<p><a id="i7H4L"></a></p>
+<h4 id="section-7">统一分析 ：</h4>
+<ul>
+<li>通过使用一套系统解决多维分析、高并发查询、预计算、实时分析查询等场景，降低系统复杂度和多技术栈开发与维护成本。</li>
+<li>使用StarRocks 来统一数据湖和数据仓库，将高并发和实时要求性很高的业务放在StarRocks中分析，把数据湖上的分析使用StarRocks外表查询，统一使用 StarRocks 管理湖仓数据。</li>
+</ul>
+<p><a id="o5a7w"></a></p>
+<h3 id="section-8">三、系统架构</h3>
+<p><a id="H8gqd"></a></p>
+<h4 id="section-9">系统架构图</h4>
+<p><img src="/article-library-site/media/7ea441384a1e2e90bf.webp" alt="StarRocks入门配图 1" loading="lazy" decoding="async" /></p>
+<p>StarRocks的<strong>架构简洁，整个系统的核心只有FE（Frontend）、BE（Backend）两类进程</strong>，不依赖任何外部组件，方便部署与维护。同时，FE和BE模块都可以在线水平扩展，元数据和数据都有副本机制，确保整个系统无单点。</p>
+<p>**FE（Frontend）**是StarRocks的前端节点，<strong>负责管理元数据，管理客户端连接，进行查询规划，查询调度</strong>等工作。FE根据配置会有两种角色：Follower和Observer。</p>
+<ul>
+<li>Follower会通过类Paxos的BDBJE协议选主出一个Leader（实现选主需要集群中有半数以上的Follower实例存活），只有Leader会对元数据进行写操作。非Leader节点会自动的将元数据写入请求路由到Leader节点。每次元数据写入时，必须有多数Follower成功才能确认是写入成功。</li>
+<li>Observer不参与选主操作，只会异步同步并且回放日志，主要用于扩展集群的查询并发能力。每个FE节点都会在内存保留一份完整的元数据，这样每个FE节点都能够提供无差别的服务。</li>
+</ul>
+<p>**BE（Backend）**是StarRocks的后端节点，<strong>负责数据存储以及SQL执行</strong>等工作。</p>
+<p>数据存储方面，StarRocks的BE节点都是完全对等的，FE按照一定策略将数据分配到对应的BE节点。在数据导入时，数据会直接写入到BE节点，不会通过FE中转，BE负责将导入数据写成对应的格式以及生成相关索引。</p>
+<p>在执行SQL计算时，一条SQL语句首先会按照具体的语义规划成逻辑执行单元，然后再按照数据的分布情况拆分成具体的物理执行单元。物理执行单元会在数据存储的节点上进行执行，这样可以避免数据的传输与拷贝，从而能够得到极致的查询性能。</p>
+<p>StarRocks整体对外暴露的是一个<strong>MySQL协议接口，支持标准SQL语法</strong>。用户通过已有的MySQL客户端能够方便地对StarRocks里的数据进行查询和分析。</p>
+<p><a id="y37fC"></a></p>
+<h4 id="section-10">数据管理</h4>
+<p><strong>在StarRocks里，一张表的数据会被拆分成多个Tablet，而每个Tablet都会以多副本的形式存储在BE节点中</strong>。StarRocks通过<strong>分区、分桶</strong>两种划分方式将Table划分成Tablet。通过分区机制（Sharding），一张表可以被划分成多个分区，如将一张表按照时间来进行分区，粒度可以是一天，或者一周等。一个分区内的数据可以根据一列、或者多列进行分桶，将数据切分成多个Tablet。用户可以自行指定分桶的大小。StarRocks会管理好每个Tablet副本的分布信息。</p>
+<p><img src="/article-library-site/media/a580607cb1efd4fd4a.webp" alt="StarRocks入门配图 2" loading="lazy" decoding="async" /></p>
+<p>由于一张表被切分成了多个Tablet，StarRocks在执行SQL语句时，<strong>可以对所有Tablet实现并发处理</strong>，从而充分的利用多机、多核提供的计算能力。此外，由于每个表可以有不同的表数据切分方式，根据每个表数据量的不同，切分成的Tablet数也可以不同。这样就能够实现在一个大规模集群内，对于不同的表使用不同的资源来进行服务。用户也可以利用StarRocks数据的切分方式，将高并发请求压力分摊到多个物理节点，从而可以通过增加物理节点的方式来扩展系统支持高并发的能力。</p>
+<p>Tablet的分布方式与具体的物理节点没有相关性。在BE节点规模发生变化时，比如在扩容、缩容时，StarRocks可以做到<strong>无需停止服务，直接完成节点的增减</strong>。节点的变化会触发Tablet的自动迁移。当节点增加时，一部分Tablet会在后台自动被均衡到新增的节点，从而使得数据能够在集群内分布的更加均衡。在节点减少时，下线机器上的Tablet会被自动均衡到其他节点，从而自动保证数据的副本数不变。所以，管理员能够非常容易的实现StarRocks的弹性伸缩的操作，不需要手工进行任何数据重分布的操作。</p>
+<p>StarRocks支持<strong>Tablet多副本存储，默认副本数为三个</strong>。<strong>多副本够保证数据存储的高可靠，以及服务的高可用</strong>。在使用三副本的情况下，一个节点的异常不会影响服务的可用性，集群的读、写服务仍然能够正常进行。另外，增加副本数还有助于提高系统支持高并发查询的能力。</p>
+<p><a id="WSiob"></a></p>
+<h3 id="section-11">四、StarRocks表设计</h3>
+<p><a id="LMGgH"></a></p>
+<h4 id="section-12">列式存储</h4>
+<p><img src="/article-library-site/media/75707a903abbbaedf7.webp" alt="StarRocks入门配图 3" loading="lazy" decoding="async" /></p>
+<p>StarRocks的表<strong>和关系型数据相同, 由行和列构成，每行数据对应用户一条记录, 每列数据有相同数据类型</strong>。一张表的列可以分为<strong>维度列(也成为key列)和指标列(value列), 维度列用于分组和排序, 指标列可通过聚合函数SUM, COUNT, MIN, MAX, REPLACE, HLL_UNION, BITMAP_UNION等累加起来</strong>。 StarRocks的表也可以认为是多维的key到多维指标的映射。</p>
+<p>查询时, 如果指定了维度列的等值条件或者范围条件, 并且这些条件中维度列可构成表维度列的前缀, 则可以利用数据的有序性, 使用range-scan快速锁定目标行. 例如: 对于表table1: (event_day, siteid, citycode, username)➜(pv); 当查询条件为event_day &gt; 2020-09-18 and siteid = 2, 则可以使用范围查找; 如果指定条件为citycode = 4 and username in ["Andy", "Boby", "Christian", "StarRocks"], 则无法使用范围查找。</p>
+<p><a id="dgbPk"></a></p>
+<h4 id="section-13">稀疏索引</h4>
+<p><img src="/article-library-site/media/d7f49a9379e3fd0145.webp" alt="StarRocks入门配图 4" loading="lazy" decoding="async" /></p>
+<p>表中数据组织有主要由三部分构成:</p>
+<ol>
+<li>shortkey index表: 表中数据每1024行, 构成一个逻辑block. 每个逻辑block在shortkey index表中存储一项索引, 内容为表的维度列的前缀, 并且不超过36字节. shortkey index为稀疏索引, 用数据行的维度列的前缀查找索引表, 可以确定该行数据所在逻辑块的起始行号。</li>
+<li>Per-column data block: 表中每一列数据按64KB分块存储, 数据块作为一个单位单独编码压缩, 也作为IO单位, 整体写回设备或者读出。</li>
+<li>Per-column cardinal index: 表中的每列数据有各自的行号索引表, 列的数据块和行号索引项一一对应, 索引项由数据块的起始行号和数据块的位置和长度信息构成, 用数据行的行号查找行号索引表, 可以获取包含该行号的数据块所在位置, 读取目标数据块后, 可以进一步查找数据。</li>
+</ol>
+<p>由此可见, 查找维度列的前缀的查找过程为: 先查找shortkey index, 获得逻辑块的起始行号, 查找维度列的行号索引, 获得目标列的数据块, 读取数据块, 然后解压解码, 从数据块中找到维度列前缀对应的数据项。</p>
+<p><a id="FNDcf"></a></p>
+<h4 id="section-14">加速数据处理</h4>
+<ol>
+<li>预先聚合: StarRocks支持聚合模型, 维度列取值相同数据行可合并一行, 合并后数据行的维度列取值不变, 指标列的取值为这些数据行的聚合结果, 用户需要给指标列指定聚合函数. 通过预先聚合, 可以加速聚合操作。</li>
+<li>分区分桶: 事实上StarRocks的表被划分成tablet, 每个tablet多副本冗余存储在BE上, BE和tablet的数量可以根据计算资源和数据规模而弹性伸缩. 查询时, 多台BE可并行地查找tablet快速获取数据. 此外, tablet的副本可复制和迁移, 增强了数据的可靠性, 避免了数据倾斜. 总之, 分区分桶保证了数据访问的高效性和稳定性。</li>
+<li>RollUp表索引: shortkey index可加速数据查找, 然后shortkey index依赖维度列排列次序. 如果使用非前缀的维度列构造查找谓词, 则无法使用shortkey index. 用户可以为数据表创建若干RollUp表索引, RollUp表索引的数据组织和存储和数据表相同, 但RollUp表拥有自身的shortkey index. 用户创建RollUp表索引时, 可选择聚合的粒度, 列的数量, 维度列的次序; 使频繁使用的查询条件能够命中相应的RollUp表索引。</li>
+<li>列级别的索引技术: Bloomfilter可快速判断数据块中不含所查找值, ZoneMap通过数据范围快速过滤待查找值, Bitmap索引可快速计算出枚举类型的列满足一定条件的行。</li>
+</ol>
+<p><a id="GY97p"></a></p>
+<h3 id="section-15">五、四种数据模型</h3>
+<p>数据模型分为四类：<strong>明细模型（Duplicate Key）、聚合模型（Aggregate Key）、更新模型（Unique Key）、主键模型（Primary Key）</strong></p>
+<p><a id="acR02"></a></p>
+<h4 id="section-16">明细模型</h4>
+<p>关键字 <strong>DUPLICATE KEY</strong></p>
+<p>明细模型是StarRocks中最常用的数据模型，顾名思义，它会保留所有的明细数据，也就是说，在明细模型下，即便导入两条完全相同的数据，StarRocks也会将数据原封不动的保存进表，不会进行聚合的操作，也没有update的语义。</p>
+<p>基于明细模型的特点，我们不难发现，明细模型通常用于追加式的数据写入，比较适合：</p>
+<p>1、需要保留原始数据的业务；</p>
+<p>2、查询维度不固定的业务；</p>
+<p>3、数据产生后就不会发生太多变化的业务。</p>
+<div class="code-example"><div class="code-toolbar"><span>sql</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">CREATE</span><span style="color:#D73A49"> TABLE</span><span style="color:#6F42C1"> IF</span><span style="color:#D73A49"> NOT</span><span style="color:#D73A49"> EXISTS</span><span style="color:#24292E"> table1 (</span></span>
+<span class="line"><span style="color:#24292E">    event_time </span><span style="color:#D73A49">DATETIME</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"datetime of event"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    event_type </span><span style="color:#D73A49">INT</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"type of event"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    user_id </span><span style="color:#D73A49">INT</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"id of user"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    device_code </span><span style="color:#D73A49">INT</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"device of "</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    channel </span><span style="color:#D73A49">INT</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">""</span></span>
+<span class="line"><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">DUPLICATE </span><span style="color:#D73A49">KEY</span><span style="color:#24292E">(event_time, event_type, user_id)</span></span>
+<span class="line"><span style="color:#D73A49">DISTRIBUTED</span><span style="color:#D73A49"> BY</span><span style="color:#D73A49"> HASH</span><span style="color:#24292E">(user_id) BUCKETS </span><span style="color:#005CC5">8</span></span></code></pre></div>
+<p>注意：</p>
+<p>这里我们使用DUPLICATE KEY(event_time, event_type, user_id)显式的说明采用明细模型，并且指定排序键为event_time、event_type和user_id。排序键是指该表中数据存储时多重排序的次序，具体概念我们后面再讨论，这里先注意：</p>
+<ol>
+<li>若在数据列中我们未定义聚合函数（例如2.1章table01的total列），则默认采用明细模型；</li>
+<li>明细模型可以使用DUPLICATE KEY(列1,列2……)显式的说明使用明细模型，也可以整个省略；</li>
+<li>若显式指定使用明细模型，则DUPLICATE KEY(列1,列2……)中，排序键“列1、列2……”需要是建表语句中的前几列，且顺序需要和建表语句中的保持一致（例如table02中的event_time, event_type和table01中的user_id, device_code,device_price,event_time），否则建表会报错；</li>
+<li>在省略DUPLICATE KEY(列1,列2……)时，StarRocks通常也会默认为表选择前三列作为排序键。</li>
+</ol>
+<p><a id="MtsTk"></a></p>
+<h4 id="section-17">聚合模型</h4>
+<p>关键字 <strong>AGGREGATE KEY</strong> <strong>（默认全表排序，一般可省略）</strong></p>
+<p>准确来说，聚合模型会在数据导入时将维度列相同的数据根据指标列设定的聚合函数进行聚合，最终表格中只会保留聚合后的数据。聚合模型可以减少查询时需要处理的数据量，进而提升查询的效率，其适合的场景如下：</p>
+<ol>
+<li>不需要原始的明细数据，只关注汇总的结果；</li>
+<li>业务涉及的查询为汇总类查询，比如sum、min、max、count等类型的查询；</li>
+<li>查询维度固定。</li>
+</ol>
+<div class="code-example"><div class="code-toolbar"><span>sql</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">CREATE</span><span style="color:#D73A49"> TABLE</span><span style="color:#6F42C1"> IF</span><span style="color:#D73A49"> NOT</span><span style="color:#D73A49"> EXISTS</span><span style="color:#24292E"> table2 (</span></span>
+<span class="line"><span style="color:#24292E">    site_id LARGEINT </span><span style="color:#D73A49">NOT NULL</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"id of site"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#D73A49">    date</span><span style="color:#D73A49"> DATE</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"time of event"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    city_code </span><span style="color:#D73A49">VARCHAR</span><span style="color:#24292E">(</span><span style="color:#005CC5">20</span><span style="color:#24292E">) COMMENT </span><span style="color:#032F62">"city_code of user"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    pv </span><span style="color:#D73A49">BIGINT</span><span style="color:#24292E"> SUM </span><span style="color:#D73A49">DEFAULT</span><span style="color:#032F62"> "0"</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"total page views"</span></span>
+<span class="line"><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">DISTRIBUTED</span><span style="color:#D73A49"> BY</span><span style="color:#D73A49"> HASH</span><span style="color:#24292E">(site_id) BUCKETS </span><span style="color:#005CC5">8</span><span style="color:#24292E">;</span></span></code></pre></div>
+<p>前面提到过，在建表时只要给指标列的定义指明聚合函数，就会启用聚合模型，所以这里我们省略了AGGREGATE KEY(site_id, date, city_code,)。因为是聚合模型，这里的AGGREGATE KEY()要么整个省略，要么在小括号中给排序键按建表顺序指定所有的维度列，也即table2中没有聚合函数的前3列。在创建完成后，我们可以使用show create table语句查看表的创建语句，会发现是一样的。</p>
+<p>在聚合模型中，StarRocks还支持聚合函数REPLACE_IF_NOT_NULL。这个聚合类型的含义是当且仅当新导入数据是非NULL值时会发生替换行为，如果新导入的数据是NULL，那么StarRocks仍然会保留原值。我们可以借助这种聚合类型实现部分列导入的业务。</p>
+<p><a id="wtUkj"></a></p>
+<h4 id="section-18">更新模型</h4>
+<p>关键字 <strong>UNIQUE KEY</strong></p>
+<p>明细模型会将所有写入的数据保留，聚合模型是对写入的数据进行聚合处理，而更新模型的特点是只保留相同主键下最新导入的数据。在更新模型中，排序键构成表的唯一性约束，成为我们常说的“主键”。</p>
+<p>明细模型和聚合模型都不适合处理数据频繁更新的场景。比如在电商场景中，订单的状态经常会发生变化，每天的订单更新量可达到上亿，若在明细模型下通过delete+insert的方式实现更新，效率是比较低的，更新模型就是针对这种场景的实时数据分析设计的。</p>
+<div class="code-example"><div class="code-toolbar"><span>sql</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">CREATE</span><span style="color:#D73A49"> TABLE</span><span style="color:#6F42C1"> IF</span><span style="color:#D73A49"> NOT</span><span style="color:#D73A49"> EXISTS</span><span style="color:#24292E"> table3 (</span></span>
+<span class="line"><span style="color:#24292E">    create_time </span><span style="color:#D73A49">DATE</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"create time of an order"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    order_id </span><span style="color:#D73A49">BIGINT</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"id of an order"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    order_state </span><span style="color:#D73A49">INT</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"state of an order"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    total_price </span><span style="color:#D73A49">BIGINT</span><span style="color:#24292E"> COMMENT </span><span style="color:#032F62">"price of an order"</span></span>
+<span class="line"><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">UNIQUE</span><span style="color:#D73A49"> KEY</span><span style="color:#24292E">(create_time, order_id)</span></span>
+<span class="line"><span style="color:#D73A49">DISTRIBUTED</span><span style="color:#D73A49"> BY</span><span style="color:#D73A49"> HASH</span><span style="color:#24292E">(order_id) BUCKETS </span><span style="color:#005CC5">8</span></span></code></pre></div>
+<p>StarRocks存储内部会给每一个批次导入数据分配一个版本号, 同一主键的数据可能有多个版本, 查询时最大(最新)版本的数据胜出。</p>
+<p>不同于明细模型和聚合模型，这里的UNIQUE KEY(create_time, order_id)不能省略，且其中的排序键“create_time+order_id”构成了唯一主键，主键相同的数据，StarRocks只会保留最后导入的那一条。</p>
+<p>逻辑上，更新模型也可以理解为一种特殊的聚合模型。以table04为例，create_time和order_id为维度列，order_state和total_price为指标列，指标列聚合类型为REPLACE。</p>
+<p>这里还需要注意，更新模型的“更新”，并不是说其支持update，而是通过追加式的数据写入，用新的数据去覆盖主键相同的历史数据，从而实现更新。同时，更新模型在导入数据时需要将所有字段补全才能够完成更新操作。</p>
+<p>更新模型建表时，我们通常将需要经常被过滤且不会被修改的字段放在“主键”上来提升查询性能。同时，我们也需要避免放置过多的“主键”字段，因为数据导入时的合并过程需要对所有“主键”字段进行比较，当“主键”字段较多时，整体的查询性能就会下降。假如某个字段只是偶尔会作为查询中的过滤条件存在，不需要放在“主键”中。</p>
+<p>对于更新模型的数据读取，因为需要在查询时完成多版本合并，当版本过多时会导致查询性能降低。所以在向更新模型导入数据时，应该适当降低导入频率，从而提升查询性能。建议在设计导入频率时以满足业务对实时性的要求为准。如果业务对实时性的要求是分钟级别，那么每分钟导入一次更新数据即可，不需要秒级导入。</p>
+<p><a id="zmdWL"></a></p>
+<h4 id="section-19">主键模型</h4>
+<p>关键字 <strong>PRIMARY KEY</strong></p>
+<p>明细模型、聚合模型和更新模型都不支持update语法，为实现update功能，StarRocks又自研了主键模型：primary key。</p>
+<p>主键模型与更新模型的特点比较接近，主键模型的表要求有唯一的主键，支持对表中的行按主键进行更新和删除操作。但对比更新模型，主键模型通过牺牲微小的写入性能和内存占用，极大提升了查询性能。同时，主键模型可以更好地支持实时/频繁更新的功能，特别适合MySQL或其他数据库同步到StarRocks的场景。</p>
+<p><strong>目前primary主键存储在内存中，为防止滥用造成内存占满，限制主键字段长度全部加起来编码后不能超过127字节。</strong></p>
+<p>主要适用场景有：</p>
+<ol>
+<li>实时对接 TP 数据至 StarRocks。</li>
+<li>利用部分列更新轻松实现多流 JOIN</li>
+</ol>
+<div class="code-example"><div class="code-toolbar"><span>sql</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">create</span><span style="color:#D73A49"> table</span><span style="color:#6F42C1"> table4</span><span style="color:#24292E"> (</span></span>
+<span class="line"><span style="color:#24292E">    dt </span><span style="color:#D73A49">date</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    order_id </span><span style="color:#D73A49">bigint</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    user_id </span><span style="color:#D73A49">int</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    merchant_id </span><span style="color:#D73A49">int</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    good_id </span><span style="color:#D73A49">int</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    good_name string </span><span style="color:#D73A49">NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    price </span><span style="color:#D73A49">int</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    cnt </span><span style="color:#D73A49">int</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    revenue </span><span style="color:#D73A49">int</span><span style="color:#D73A49"> NOT NULL</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#D73A49">    state</span><span style="color:#D73A49"> tinyint</span><span style="color:#D73A49"> NOT NULL</span></span>
+<span class="line"><span style="color:#24292E">) </span><span style="color:#D73A49">PRIMARY KEY</span><span style="color:#24292E"> (dt, order_id)</span></span>
+<span class="line"><span style="color:#D73A49">PARTITION</span><span style="color:#D73A49"> BY</span><span style="color:#D73A49"> RANGE</span><span style="color:#24292E">(</span><span style="color:#032F62">`dt`</span><span style="color:#24292E">) (</span></span>
+<span class="line"><span style="color:#D73A49">    PARTITION</span><span style="color:#24292E"> p20210820 </span><span style="color:#D73A49">VALUES</span><span style="color:#24292E"> [('2021-08-20'), ('2021-08-21')),</span></span>
+<span class="line"><span style="color:#24292E">    PARTITION p20210821 VALUES </span><span style="color:#005CC5">[</span><span style="color:#24292E">('2021-08-21'), ('2021-08-22')),</span></span>
+<span class="line"><span style="color:#24292E">    ...</span></span>
+<span class="line"><span style="color:#24292E">    PARTITION p20210929 VALUES </span><span style="color:#005CC5">[</span><span style="color:#24292E">('2021-09-29'), ('2021-09-30')),</span></span>
+<span class="line"><span style="color:#24292E">    PARTITION p20210930 VALUES </span><span style="color:#005CC5">[</span><span style="color:#24292E">('2021-09-30'), ('2021-10-01'))</span></span>
+<span class="line"><span style="color:#24292E">) DISTRIBUTED BY HASH(order_id) BUCKETS 4</span></span>
+<span class="line"><span style="color:#24292E">PROPERTIES("replication_num" = "3");</span></span></code></pre></div>
+<p>注意:</p>
+<ol>
+<li>主键列仅支持类型: boolean, tinyint, smallint, int, bigint, largeint, string/varchar, date, datetime, 不允许NULL。</li>
+<li>分区列(partition)、分桶列(bucket)必须在主键列中。</li>
+<li>和更新模型不同，主键模型允许为非主键列创建bitmap等索引，注意需要建表时指定。</li>
+<li>由于其列值可能会更新，主键模型目前还不支持rollup index和物化视图。</li>
+<li>暂不支持使用ALTER TABLE修改列类型。 ALTER TABLE的相关语法说明和示例，请参见 ALTER TABLE。</li>
+<li>在设计表时应尽量减少主键的列数和大小以节约内存，建议使用int/bigint等占用空间少的类型。暂时不建议使用varchar。建议提前根据表的行数和主键列类型来预估内存使用量，避免出现OOM。内存估算举例：</li>
+</ol>
+<p>a. 假设表的主键为: dt date (4byte), id bigint(8byte) = 12byte</p>
+<p>b. 假设热数据有1000W行, 存储3副本</p>
+<p>c. 则内存占用: (12 + 9(每行固定开销) ) * 1000W * 3 * 1.5(hash表平均额外开销) = 945M</p>
+<ol>
+<li>目前主键模型仍只支持整行更新，还不支持部分列更新。</li>
+</ol>
+<p>在1.19版本中，主键模型是作为“实验功能”发布的，由于存储引擎会为主键建立索引，而在导入数据时会把主键索引加载在内存中，所以主键模型对内存的要求比较高，后续版本也会不断的优化内存占用。目前推荐使用的场景有：</p>
+<ol>
+<li><p>数据有冷热特征，比如最近几天的热数据才经常被修改，老的冷数据很少被修改（老的业务数据导入完成后不再更新，新数据导入时老数据的主键索引就不会加载，也就不会占用内存，内存中仅会加载最近几天的索引）；</p>
+</li>
+<li><p>大宽表（数百到数千列）。主键只占整个数据的很小一部分，其内存开销比较低。</p>
+</li>
+</ol>
+<p>主键模型的“插入/更新/删除”目前只支持使用“导入”的方式完成，通过SQL语句(insert/update/delete)来操作数据的功能会在未来版本中支持。目前支持的导入方式有stream load、broker load、routine load、Json数据导入，Spark load还未支持。</p>
+<p><a id="QHskx"></a></p>
+<h3 id="section-20">六、语法说明</h3>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>CREATE TABLE table01 (</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## 每列语法：col_name col_type [agg_type] [NULL | NOT NULL] [DEFAULT "default_value"] COMMENT " xxxxxx"</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 维度列</span></span>
+<span class="line"><span>user_id INT COMMENT "id of user",</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 维度列</span></span>
+<span class="line"><span>device_code INT COMMENT "code of device",</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 维度列</span></span>
+<span class="line"><span>device_price DECIMAL(10,2) COMMENT "",</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 维度列</span></span>
+<span class="line"><span>event_time DATETIME NOT NULL COMMENT "datetime of event",</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 指标列，聚合函数: SUM, COUNT, MIN, MAX, REPLACE, HLL_UNION, BITMAP_UNION等</span></span>
+<span class="line"><span>total DECIMAL(18,2) SUM DEFAULT "0" COMMENT "total amount of equipment",</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## 索引语法: INDEX index_name (col_name1[, col_name2, ...]) [USING BITMAP] COMMENT 'xxxxxx'</span></span>
+<span class="line"><span># 索引，我们为user_id列创建了名为index01的bitmap索引。当前这种写法仅支持BITMAP索引</span></span>
+<span class="line"><span>#</span></span>
+<span class="line"><span>INDEX index01 (user_id) USING BITMAP COMMENT "bitmap index"</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## -------------------------------------------------------------------------- ##</span></span>
+<span class="line"><span># 聚合模型,显式的定义排序键,在为聚合模型定义排序键时，需要把所有的维度列按照建表的顺序都写上，或者干脆把排序键这里整个不写（默认也会使用所有的维度列）。</span></span>
+<span class="line"><span># 在StarRocks聚合模型建表时，只要给指标列定义指明聚合函数，就会自动启用聚合模型，所以这部分大多数情况下其实也可以省略不写。</span></span>
+<span class="line"><span># 排序键中的列需要与建表语句中列的顺序一致，我们可以从头选取几个列作为排序键。</span></span>
+<span class="line"><span># 在省略这部分时，StarRocks也会使用所有的维度列作为排序列，所以通常我们需要把经常作为查询条件的列作为排序键写在建表语句靠前部分以加速查询。</span></span>
+<span class="line"><span>AGGREGATE KEY(user_id, device_code, device_price, event_time)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## -------------------------------------------------------------------------- ##</span></span>
+<span class="line"><span># 明细模型，明细模型排序键写法比较灵活，可以指定部分的维度列为排序键（严格来说它是没有指标列的）</span></span>
+<span class="line"><span># 明细模型下，若我们省略排序键的语句，那么StarRocks通常会默认指定表结构的前三列作为排序键。</span></span>
+<span class="line"><span># DUPLICATE KEY(user_id, device_code, device_price)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## -------------------------------------------------------------------------- ##</span></span>
+<span class="line"><span># 更新模型，更新模型和主键模型的排序键只有一种写法，就是在 UNIQUE KEY()的括号中指定。</span></span>
+<span class="line"><span># 建表时排序键语句为UNIQUE KEY(user_id, device_code)，则用于排序的列就是 user_id 和 device_code。更新模型/主键模型的排序键必需显式指定，不能省略不写。</span></span>
+<span class="line"><span># UNIQUE KEY(user_id, device_code)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## -------------------------------------------------------------------------- ##</span></span>
+<span class="line"><span># 主键模型，更新模型和主键模型的排序键只有一种写法，就是在 PRIMARY KEY()的括号中指定。</span></span>
+<span class="line"><span># 建表时排序键语句为PRIMARY KEY(user_id, device_code)，则用于排序的列就是 user_id 和 device_code。更新模型/主键模型的排序键必需显式指定，不能省略不写。</span></span>
+<span class="line"><span># PRIMARY KEY(user_id, device_code)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 分区规则,按照event_time根据日期分为三个区，也可以根据范围分区 PARTITION BY RANGE()</span></span>
+<span class="line"><span># 分区的主要目的是裁剪数据，来最大限度地减少扫描数据量，从而提高查询性能。通常我们会使用日期进行分区。</span></span>
+<span class="line"><span># 当前分区键仅支持日期类型和整数类型（支持一列或多列）</span></span>
+<span class="line"><span># 这里如果不进行分区，StarRocks会将整个表的数据视为在一个大分区内。</span></span>
+<span class="line"><span>PARTITION BY RANGE(event_time)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>(</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>PARTITION p1 VALUES LESS THAN ('2021-01-31'),</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>PARTITION p2 VALUES LESS THAN ('2021-02-28'),</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>PARTITION p3 VALUES LESS THAN ('2021-03-31')</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>)</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 分桶规则, 按照user_id和device_code将每个分区数据根据hash分散到20个桶中，最终会将数据切分为子表tablet分布在桶中</span></span>
+<span class="line"><span># 分桶是将分区后的数据打散为一个个tablet，使数据多副本分散在集群的多个节点上，充分发挥集群多机多核的查询优势。</span></span>
+<span class="line"><span># 为了保证数据不倾斜，我们会根据业务选择一列或者多列进行分桶。如果这里不指定分桶数，</span></span>
+<span class="line"><span># 比如只写为“DISTRIBUTED BY HASH(user_id,device_code)”，StarRocks会默认将数据分为10个桶。</span></span>
+<span class="line"><span>DISTRIBUTED BY HASH(user_id, device_code) BUCKETS 20</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 其他配置,比如副本数、存储介质、动态分区、bloom_filter索引等等</span></span>
+<span class="line"><span># 这里的属性是针对全表的，但是，StarRocks也支持针对分区级别单独设置一些属性</span></span>
+<span class="line"><span>PROPERTIES (</span></span>
+<span class="line"><span># 数据副本指定为了1，而在不指定时，StarRocks默认为三副本数据</span></span>
+<span class="line"><span>"replication_num" = "1",</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>"bloom_filter_columns"="event_time",</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## 动态分区，在日常业务中，除了每日会新增数据，我们还会对旧的历史数据进行清理。动态分区就是StarRocks用来实现新分区自动创建以及过期分区自动删除的方式。</span></span>
+<span class="line"><span>## 动态分区由后台常驻进程调度，默认调度周期为10分钟一次，由FE配置文件中的dynamic_partition_check_interval_seconds参数控制（单位是秒，配置文件中默认没有该配置），</span></span>
+<span class="line"><span>## 所以并不是创建动态分区表后所有分区就立刻被创建，我们还需要等待不超过10分钟让后台调度生效。</span></span>
+<span class="line"><span># 是否开启动态分区特性，可指定为TRUE或FALSE。如果该参数等号后不填写值，则默认代表TRUE。</span></span>
+<span class="line"><span>"dynamic_partition.enable" = "true",</span></span>
+<span class="line"><span># 动态分区调度的粒度，可指定为DAY/WEEK/MONTH。</span></span>
+<span class="line"><span>"dynamic_partition.time_unit" = "DAY",</span></span>
+<span class="line"><span># 动态分区的开始时间。以当天为基准，根据该参数向过去推算数个粒度的时间，超过该时间范围的分区将会被删除。如果不填写，则默认为Integer.MIN_VALUE即-2147483648。</span></span>
+<span class="line"><span>"dynamic_partition.start" = "-40",</span></span>
+<span class="line"><span># 动态分区的结束时间。以当天为基准，会根据该参数提前创建数个粒度的分区范围。</span></span>
+<span class="line"><span>"dynamic_partition.end" = "3",</span></span>
+<span class="line"><span># 动态分区自动创建的分区名前缀。</span></span>
+<span class="line"><span>"dynamic_partition.prefix" = "p",</span></span>
+<span class="line"><span># 动态创建的分区所对应的分桶数量。</span></span>
+<span class="line"><span>"dynamic_partition.buckets" = "16"</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>## 以上属性在建表完成后也可以进行修改，例如关闭动态分区属性：ALTER TABLE table01 SET("dynamic_partition.enable"="false");</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>);</span></span></code></pre></div>
+<p>参考文章：</p>
+<ul>
+<li><a href="https://blog.csdn.net/chimchim66/article/details/125146104">StarRocks学习-初识_chimchim66的博客-CSDN博客</a></li>
+<li><a href="https://blog.csdn.net/ult_me/article/details/122011736?spm=1001.2014.3001.5502">StarRocks表设计--概述链接</a></li>
+<li><a href="https://blog.csdn.net/ult_me/article/details/122013654?spm=1001.2014.3001.5502">StarRocks表设计--数据模型</a></li>
+<li><a href="https://blog.csdn.net/ult_me?type=blog">StarRocks系列教程</a></li>
+</ul>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/flink-cdc-introduction/"><span>同分类 · 上一篇</span><strong>Flink CDC 入门</strong></a><a href="/article-library-site/tech/shardingsphere/" class="next-article"><span>同分类 · 下一篇</span><strong>ShardingSphere 分片与配置笔记</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="正确区分 unchecked、rawtypes 与 deprecation，把警告抑制限制在必要范围内。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="Java @SuppressWarnings 使用笔记"><meta property="og:description" content="正确区分 unchecked、rawtypes 与 deprecation，把警告抑制限制在必要范围内。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>Java @SuppressWarnings 使用笔记 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">2 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">常见名称</a><a href="#section-2" style="--indent:0">示例：限制抑制范围</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">Java @SuppressWarnings 使用笔记</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 2 分钟</span></div><p class="tech-dates">原笔记 2022-01-14<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p><code>@SuppressWarnings</code> 用于抑制特定的编译警告。先理解警告的原因，能修正类型和调用方式时优先修正；确实需要兼容旧接口时，再在最小范围内使用注解。</p>
+<h2 id="section-1">常见名称</h2>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>unchecked</code></td>
+<td>未经检查的转换或调用，例如从原始类型转为参数化类型</td>
+</tr>
+<tr>
+<td><code>deprecation</code></td>
+<td>使用已弃用的 API</td>
+</tr>
+<tr>
+<td><code>removal</code></td>
+<td>使用已标记计划移除的 API</td>
+</tr>
+<tr>
+<td><code>rawtypes</code></td>
+<td>javac 对使用原始泛型类型的警告，例如直接声明 <code>List</code></td>
+</tr>
+<tr>
+<td><code>serial</code></td>
+<td>javac 的序列化相关警告，例如缺少 <code>serialVersionUID</code></td>
+</tr>
+<tr>
+<td><code>fallthrough</code></td>
+<td>javac 对 switch 分支意外贯穿的警告</td>
+</tr>
+</tbody></table>
+<p>不同编译器、IDE 支持的名字并不完全相同。原笔记将 <code>resource</code> 解释为“有泛型未指定类型”，这是不准确的；原始泛型类型应对应 <code>rawtypes</code>。<code>unused</code> 等检查也不能一概当作 Java 语言规范统一要求的警告名称。</p>
+<h2 id="section-2">示例：限制抑制范围</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">SuppressWarnings</span><span style="color:#24292E">(</span><span style="color:#032F62">"deprecation"</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">void</span><span style="color:#6F42C1"> callLegacyApi</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#24292E">    legacyService.</span><span style="color:#6F42C1">oldMethod</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>这里的 <code>legacyService</code> 是业务项目提供的旧接口实例。注解放在需要兼容的方法上，其他方法仍可保留弃用警告。多个名称可以写成数组，但不建议为了消除提示而直接覆盖整个类。</p>
+<p><code>"deprecation "</code> 尾部多出的空格会改变名称，复制时也要检查。可以通过下面的命令查看当前 javac 支持的 lint 名称：</p>
+<div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">javac</span><span style="color:#005CC5"> --help-lint</span></span></code></pre></div>
+<p>参考：<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/SuppressWarnings.html">Java 21 SuppressWarnings</a>、<a href="https://docs.oracle.com/en/java/javase/21/docs/specs/man/javac.html">javac 手册</a>。</p>
+<p>原笔记参考：<a href="https://www.cnblogs.com/xiangtunmizu/p/11960680.html">注解整理</a>。</p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/spring-aop-advice-order/"><span>同分类 · 上一篇</span><strong>Spring AOP：通知的执行顺序</strong></a><a href="/article-library-site/tech/java-coordinate-distance/" class="next-article"><span>同分类 · 下一篇</span><strong>Java 根据经纬度计算两点距离</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

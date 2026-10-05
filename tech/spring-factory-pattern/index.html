@@ -1,0 +1,465 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="用 Spring 管理多个消息处理实现，通过工厂按类型找到对应处理器。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="Spring 实现工厂模式示例"><meta property="og:description" content="用 Spring 管理多个消息处理实现，通过工厂按类型找到对应处理器。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>Spring 实现工厂模式示例 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">6 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">微信订阅消息服务工厂</a><a href="#section-2" style="--indent:0">微信订阅消息服务模板</a><a href="#section-3" style="--indent:0">微信小程序优惠券过期订阅消息服务</a><a href="#section-4" style="--indent:0">微信小程序到账订阅消息服务</a><a href="#section-5" style="--indent:0">微信小程序核销订阅消息服务</a><a href="#section-6" style="--indent:0">微信订阅回调接口</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">Spring 实现工厂模式示例</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 26 分钟</span></div><p class="tech-dates">原笔记 2022-03-28<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>用 Spring 管理多个消息处理实现，通过工厂按类型找到对应处理器。</p>
+<blockquote>
+<p>示例说明：代码展示工厂与多个处理实现之间的组织方式；业务服务、实体、异常及枚举依赖原项目，不能作为单文件直接编译。项目包名已替换为 com.example。</p>
+</blockquote>
+<h2 id="section-1">微信订阅消息服务工厂</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.example.service.submsg;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.remote.enums.SubMsgBusinessTypeEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.remote.util.ValidUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.google.common.collect.Maps;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.extern.slf4j.Slf4j;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.commons.collections4.MapUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.context.ApplicationContext;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.context.ApplicationListener;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.context.event.ContextRefreshedEvent;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.stereotype.Service;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.Map;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 微信订阅消息服务工厂</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2022 -2-18 14:00</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Slf4j</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Service</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> WxMaSubMsgServiceFactory</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> ApplicationListener</span><span style="color:#24292E">&lt;</span><span style="color:#D73A49">ContextRefreshedEvent</span><span style="color:#24292E">&gt; {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 策略实现类保存到 Map 中 Key 的前缀</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> String KEY_PREFIX </span><span style="color:#D73A49">=</span><span style="color:#032F62"> "wxMaSubMsgServiceTemplate"</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 用于保存所有策略实现类</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> Map&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, </span><span style="color:#D73A49">WxMaSubMsgServiceTemplate</span><span style="color:#24292E">&gt; wxMaSubMsgServiceTemplateMap </span><span style="color:#D73A49">=</span><span style="color:#24292E"> Maps.</span><span style="color:#6F42C1">newConcurrentMap</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 获取微信订阅消息服务</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> busType</span><span style="color:#6A737D"> the bus type</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the wx ma sub msg service</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> WxMaSubMsgServiceTemplate </span><span style="color:#6F42C1">getService</span><span style="color:#24292E">(SubMsgBusinessTypeEnum </span><span style="color:#E36209">busType</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> WxMaSubMsgServiceTemplate wxMaSubMsgServiceTemplate </span><span style="color:#D73A49">=</span><span style="color:#24292E"> wxMaSubMsgServiceTemplateMap.</span><span style="color:#6F42C1">get</span><span style="color:#24292E">(KEY_PREFIX </span><span style="color:#D73A49">+</span><span style="color:#24292E"> busType.</span><span style="color:#6F42C1">getCode</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">        ValidUtils.</span><span style="color:#6F42C1">isNull</span><span style="color:#24292E">(wxMaSubMsgServiceTemplate, </span><span style="color:#032F62">"获取微信订阅消息服务策略异常，请检查订阅消息业务类型"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> wxMaSubMsgServiceTemplate;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> onApplicationEvent</span><span style="color:#24292E">(ContextRefreshedEvent </span><span style="color:#E36209">event</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> ApplicationContext applicationContext </span><span style="color:#D73A49">=</span><span style="color:#24292E"> event.</span><span style="color:#6F42C1">getApplicationContext</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // key 默认是以实现类的名称，首字母小写名称</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> Map&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, </span><span style="color:#D73A49">WxMaSubMsgServiceTemplate</span><span style="color:#24292E">&gt; templateMap </span><span style="color:#D73A49">=</span><span style="color:#24292E"> applicationContext.</span><span style="color:#6F42C1">getBeansOfType</span><span style="color:#24292E">(WxMaSubMsgServiceTemplate.class);</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (MapUtils.</span><span style="color:#6F42C1">isEmpty</span><span style="color:#24292E">(templateMap)) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 转化为我们自定义的名称</span></span>
+<span class="line"><span style="color:#24292E">        templateMap.</span><span style="color:#6F42C1">values</span><span style="color:#24292E">().</span><span style="color:#6F42C1">forEach</span><span style="color:#24292E">(templateObj </span><span style="color:#D73A49">-&gt;</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">            final</span><span style="color:#24292E"> Integer code </span><span style="color:#D73A49">=</span><span style="color:#24292E"> templateObj.</span><span style="color:#6F42C1">getBusinessType</span><span style="color:#24292E">().</span><span style="color:#6F42C1">getCode</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">            wxMaSubMsgServiceTemplateMap.</span><span style="color:#6F42C1">put</span><span style="color:#24292E">(KEY_PREFIX </span><span style="color:#D73A49">+</span><span style="color:#24292E"> code, templateObj);</span></span>
+<span class="line"><span style="color:#24292E">        });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">        wxMaSubMsgServiceTemplateMap.</span><span style="color:#6F42C1">forEach</span><span style="color:#24292E">((k, v) </span><span style="color:#D73A49">-&gt;</span><span style="color:#24292E"> log.</span><span style="color:#6F42C1">info</span><span style="color:#24292E">(</span><span style="color:#032F62">"init WxMaSubMsgService bean success, name = {}，bean = {}"</span><span style="color:#24292E">, k, v.</span><span style="color:#6F42C1">toString</span><span style="color:#24292E">()));</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<h2 id="section-2">微信订阅消息服务模板</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.example.service.submsg;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> cn.binarywang.wx.miniapp.api.WxMaService;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> cn.binarywang.wx.miniapp.bean.WxMaSubscribeMessage;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.properties.WxMaSubMsgProperties;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.remote.enums.SubMsgBusinessTypeEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.service.IMaAccountService;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.service.IMaSubMsgSendRecordService;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.service.submsg.data.SubMsgData;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.util.SpringContextUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.extern.slf4j.Slf4j;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> me.chanjar.weixin.common.error.WxError;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> me.chanjar.weixin.common.error.WxErrorException;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> me.chanjar.weixin.common.error.WxMaErrorMsgEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.commons.collections4.CollectionUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.util.Assert;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.List;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.Objects;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 微信订阅消息服务模板</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2022 -2-18 9:29</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Slf4j</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> abstract</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> WxMaSubMsgServiceTemplate</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> SubMsgCallBack</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 发送订阅消息</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> accountId</span><span style="color:#6A737D">   微信小程序账户id</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> businessIds</span><span style="color:#6A737D"> 业务ids</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> subMsgData</span><span style="color:#6A737D">  微信订阅消息参数</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> final</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> sendMsg</span><span style="color:#24292E">(Long </span><span style="color:#E36209">accountId</span><span style="color:#24292E">, List&lt;</span><span style="color:#D73A49">Long</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">businessIds</span><span style="color:#24292E">, SubMsgData </span><span style="color:#E36209">subMsgData</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        Assert.</span><span style="color:#6F42C1">notNull</span><span style="color:#24292E">(accountId, </span><span style="color:#032F62">"accountId must not null"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">        Assert.</span><span style="color:#6F42C1">notEmpty</span><span style="color:#24292E">(businessIds, </span><span style="color:#032F62">"businessIds must not null"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">        Assert.</span><span style="color:#6F42C1">notNull</span><span style="color:#24292E">(subMsgData, </span><span style="color:#032F62">"subMsgData must not null"</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> Boolean enable </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> getSpringBean</span><span style="color:#24292E">(WxMaSubMsgProperties.class).</span><span style="color:#6F42C1">getEnable</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (</span><span style="color:#D73A49">!</span><span style="color:#24292E">enable) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 构建 MsgData</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; msgDatas </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">buildMsgData</span><span style="color:#24292E">(subMsgData.</span><span style="color:#6F42C1">getMsgDataValues</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (CollectionUtils.</span><span style="color:#6F42C1">isEmpty</span><span style="color:#24292E">(msgDatas)) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 构建 WxMaSubscribeMessage</span></span>
+<span class="line"><span style="color:#D73A49">        final</span><span style="color:#24292E"> WxMaSubscribeMessage wxMaSubscribeMessage </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">buildWxMaSubscribeMessage</span><span style="color:#24292E">(</span><span style="color:#6F42C1">getSpringBean</span><span style="color:#24292E">(IMaAccountService.class).</span><span style="color:#6F42C1">getOpenIdById</span><span style="color:#24292E">(accountId), msgDatas);</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (Objects.</span><span style="color:#6F42C1">isNull</span><span style="color:#24292E">(wxMaSubscribeMessage)) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 默认发送成功</span></span>
+<span class="line"><span style="color:#24292E">        WxError wxError </span><span style="color:#D73A49">=</span><span style="color:#24292E"> WxError.</span><span style="color:#6F42C1">builder</span><span style="color:#24292E">().</span><span style="color:#6F42C1">errorCode</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">).</span><span style="color:#6F42C1">errorMsg</span><span style="color:#24292E">(</span><span style="color:#032F62">"成功"</span><span style="color:#24292E">).</span><span style="color:#6F42C1">build</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 发送订阅消息</span></span>
+<span class="line"><span style="color:#D73A49">        try</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">            getSpringBean</span><span style="color:#24292E">(WxMaService.class).</span><span style="color:#6F42C1">getSubscribeService</span><span style="color:#24292E">().</span><span style="color:#6F42C1">sendSubscribeMsg</span><span style="color:#24292E">(wxMaSubscribeMessage);</span></span>
+<span class="line"><span style="color:#24292E">        } </span><span style="color:#D73A49">catch</span><span style="color:#24292E"> (WxErrorException </span><span style="color:#E36209">e</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">            wxError </span><span style="color:#D73A49">=</span><span style="color:#24292E"> e.</span><span style="color:#6F42C1">getError</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (wxError.</span><span style="color:#6F42C1">getErrorCode</span><span style="color:#24292E">() </span><span style="color:#D73A49">!=</span><span style="color:#24292E"> WxMaErrorMsgEnum.CODE_43101.</span><span style="color:#6F42C1">getCode</span><span style="color:#24292E">()) {</span></span>
+<span class="line"><span style="color:#24292E">                log.</span><span style="color:#6F42C1">error</span><span style="color:#24292E">(</span><span style="color:#032F62">"推送核销订阅消息异常："</span><span style="color:#24292E">, e);</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 保存订阅消息发送记录</span></span>
+<span class="line"><span style="color:#6F42C1">        getSpringBean</span><span style="color:#24292E">(IMaSubMsgSendRecordService.class).</span><span style="color:#6F42C1">saveRecord</span><span style="color:#24292E">(accountId, businessIds, wxError, </span><span style="color:#005CC5">this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">getBusinessType</span><span style="color:#24292E">());</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 回调</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">callBack</span><span style="color:#24292E">(accountId, businessIds);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 获取业务类型</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the business type</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#D73A49"> abstract</span><span style="color:#24292E"> SubMsgBusinessTypeEnum </span><span style="color:#6F42C1">getBusinessType</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 MsgData 参数</span></span>
+<span class="line"><span style="color:#6A737D">     * &lt;br/&gt;</span></span>
+<span class="line"><span style="color:#6A737D">     * 可以使用 {</span><span style="color:#D73A49">@link</span><span style="color:#6F42C1"> WxMaSubMsgServiceTemplate</span><span style="color:#6A737D">#</span><span style="color:#E36209">newMsgData(String, String)</span><span style="color:#6A737D">} 方法构建</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDataValues</span><span style="color:#6A737D"> the msg data values</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the list</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#D73A49"> abstract</span><span style="color:#24292E"> List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">buildMsgData</span><span style="color:#24292E">(List&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDataValues</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 WxMaSubscribeMessage 参数</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> toUserOpenId</span><span style="color:#6A737D"> the to user open id</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDatas</span><span style="color:#6A737D">     the msg datas</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the wx ma subscribe message</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#D73A49"> abstract</span><span style="color:#24292E"> WxMaSubscribeMessage </span><span style="color:#6F42C1">buildWxMaSubscribeMessage</span><span style="color:#24292E">(String </span><span style="color:#E36209">toUserOpenId</span><span style="color:#24292E">, List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDatas</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 创建一个 MsgData</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> name</span><span style="color:#6A737D">  the name</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> value</span><span style="color:#6A737D"> the value</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the wx ma subscribe message . msg data</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> WxMaSubscribeMessage.MsgData </span><span style="color:#6F42C1">newMsgData</span><span style="color:#24292E">(String </span><span style="color:#E36209">name</span><span style="color:#24292E">, String </span><span style="color:#E36209">value</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        WxMaSubscribeMessage.MsgData msgData </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#24292E"> WxMaSubscribeMessage.</span><span style="color:#6F42C1">MsgData</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">        msgData.</span><span style="color:#6F42C1">setName</span><span style="color:#24292E">(name);</span></span>
+<span class="line"><span style="color:#24292E">        msgData.</span><span style="color:#6F42C1">setValue</span><span style="color:#24292E">(value);</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> msgData;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> &lt;</span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; T </span><span style="color:#6F42C1">getSpringBean</span><span style="color:#24292E">(Class&lt;</span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">cls</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> SpringContextUtils.</span><span style="color:#6F42C1">getBean</span><span style="color:#24292E">(cls);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<h2 id="section-3">微信小程序优惠券过期订阅消息服务</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.example.service.submsg;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> cn.binarywang.wx.miniapp.bean.WxMaSubscribeMessage;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.constant.SystemConstants;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.properties.WxMaSubMsgProperties;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.remote.enums.SubMsgBusinessTypeEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.service.IMaAccountCouponService;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.RequiredArgsConstructor;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.stereotype.Service;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.List;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.stream.Collectors;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.stream.IntStream;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 微信小程序优惠券过期订阅消息服务</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2022 -1-20 11:39</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">RequiredArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Service</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> ExpiredWxMaSubMsgService</span><span style="color:#D73A49"> extends</span><span style="color:#6F42C1"> WxMaSubMsgServiceTemplate</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 微信小程序订阅消息参数配置</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> WxMaSubMsgProperties wxMaSubMsgProperties;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 小程序账户-门店优惠券关联表</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> IMaAccountCouponService maAccountCouponService;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 获取业务类型</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the business type</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> SubMsgBusinessTypeEnum </span><span style="color:#6F42C1">getBusinessType</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> SubMsgBusinessTypeEnum.COUPON_EXPIRED;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 MsgData 参数</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDataValues</span><span style="color:#6A737D"> the msg data values</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the list</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">buildMsgData</span><span style="color:#24292E">(List&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDataValues</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> IntStream.</span><span style="color:#6F42C1">range</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">, msgDataValues.</span><span style="color:#6F42C1">size</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">mapToObj</span><span style="color:#24292E">(idx </span><span style="color:#D73A49">-&gt;</span><span style="color:#005CC5"> super</span><span style="color:#24292E">.</span><span style="color:#6F42C1">newMsgData</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getExpiredTempMsgDataNames</span><span style="color:#24292E">()[idx], msgDataValues.</span><span style="color:#6F42C1">get</span><span style="color:#24292E">(idx)))</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">collect</span><span style="color:#24292E">(Collectors.</span><span style="color:#6F42C1">toList</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 WxMaSubscribeMessage 参数</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> toUserOpenId</span><span style="color:#6A737D"> the to user open id</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDatas</span><span style="color:#6A737D">     the msg datas</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the wx ma subscribe message</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> WxMaSubscribeMessage </span><span style="color:#6F42C1">buildWxMaSubscribeMessage</span><span style="color:#24292E">(String </span><span style="color:#E36209">toUserOpenId</span><span style="color:#24292E">, List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDatas</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> WxMaSubscribeMessage.</span><span style="color:#6F42C1">builder</span><span style="color:#24292E">()</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">templateId</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getExpiredTempId</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">toUser</span><span style="color:#24292E">(toUserOpenId)</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">page</span><span style="color:#24292E">(SystemConstants.WX_MA_SUB_MSG_JUMP_PAGE)</span></span>
+<span class="line"><span style="color:#6A737D">                // 消息参数</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">data</span><span style="color:#24292E">(msgDatas)</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">miniprogramState</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getState</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">build</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 发送消息后回调</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> accountId</span><span style="color:#6A737D">   微信小程序账户id</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> businessIds</span><span style="color:#6A737D"> 业务ids</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> callBack</span><span style="color:#24292E">(Long </span><span style="color:#E36209">accountId</span><span style="color:#24292E">, List&lt;</span><span style="color:#D73A49">Long</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">businessIds</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#6A737D">        // 修改该优惠券 “是否发送过期订阅通知” 标志</span></span>
+<span class="line"><span style="color:#24292E">        maAccountCouponService.</span><span style="color:#6F42C1">updateBatchSendExpiredSubMsgToTrue</span><span style="color:#24292E">(businessIds);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<h2 id="section-4">微信小程序到账订阅消息服务</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.example.service.submsg;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> cn.binarywang.wx.miniapp.bean.WxMaSubscribeMessage;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.constant.SystemConstants;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.properties.WxMaSubMsgProperties;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.remote.enums.SubMsgBusinessTypeEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.RequiredArgsConstructor;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.stereotype.Service;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.List;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.stream.Collectors;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.stream.IntStream;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 微信小程序到账订阅消息服务</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2022 -1-20 11:39</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">RequiredArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Service</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> ReceiveWxMaSubMsgService</span><span style="color:#D73A49"> extends</span><span style="color:#6F42C1"> WxMaSubMsgServiceTemplate</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 微信小程序订阅消息参数配置</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> WxMaSubMsgProperties wxMaSubMsgProperties;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 获取业务类型</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the business type</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> SubMsgBusinessTypeEnum </span><span style="color:#6F42C1">getBusinessType</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> SubMsgBusinessTypeEnum.COUPON_RECEIVE;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 MsgData 参数</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDataValues</span><span style="color:#6A737D"> the msg data values</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the list</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">buildMsgData</span><span style="color:#24292E">(List&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDataValues</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> IntStream.</span><span style="color:#6F42C1">range</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">, msgDataValues.</span><span style="color:#6F42C1">size</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">mapToObj</span><span style="color:#24292E">(idx </span><span style="color:#D73A49">-&gt;</span><span style="color:#005CC5"> super</span><span style="color:#24292E">.</span><span style="color:#6F42C1">newMsgData</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getReceiveTempMsgDataNames</span><span style="color:#24292E">()[idx], msgDataValues.</span><span style="color:#6F42C1">get</span><span style="color:#24292E">(idx)))</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">collect</span><span style="color:#24292E">(Collectors.</span><span style="color:#6F42C1">toList</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 WxMaSubscribeMessage 参数</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> toUserOpenId</span><span style="color:#6A737D"> the to user open id</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDatas</span><span style="color:#6A737D">     the msg datas</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the wx ma subscribe message</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> WxMaSubscribeMessage </span><span style="color:#6F42C1">buildWxMaSubscribeMessage</span><span style="color:#24292E">(String </span><span style="color:#E36209">toUserOpenId</span><span style="color:#24292E">, List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDatas</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> WxMaSubscribeMessage.</span><span style="color:#6F42C1">builder</span><span style="color:#24292E">()</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">templateId</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getReceiveTempId</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">toUser</span><span style="color:#24292E">(toUserOpenId)</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">page</span><span style="color:#24292E">(SystemConstants.WX_MA_SUB_MSG_JUMP_PAGE)</span></span>
+<span class="line"><span style="color:#6A737D">                // 消息参数</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">data</span><span style="color:#24292E">(msgDatas)</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">miniprogramState</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getState</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">build</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<h2 id="section-5">微信小程序核销订阅消息服务</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.example.service.submsg;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> cn.binarywang.wx.miniapp.bean.WxMaSubscribeMessage;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.constant.SystemConstants;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.properties.WxMaSubMsgProperties;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.example.remote.enums.SubMsgBusinessTypeEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.RequiredArgsConstructor;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.stereotype.Service;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.List;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.stream.Collectors;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.stream.IntStream;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 微信小程序核销订阅消息服务</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2022 -1-20 11:39</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">RequiredArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Service</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> WriteOffWxMaSubMsgService</span><span style="color:#D73A49"> extends</span><span style="color:#6F42C1"> WxMaSubMsgServiceTemplate</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 微信小程序订阅消息参数配置</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> WxMaSubMsgProperties wxMaSubMsgProperties;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 获取业务类型</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the business type</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> SubMsgBusinessTypeEnum </span><span style="color:#6F42C1">getBusinessType</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> SubMsgBusinessTypeEnum.COUPON_WRITE_OFF;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 MsgData 参数</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDataValues</span><span style="color:#6A737D"> the msg data values</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the list</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">buildMsgData</span><span style="color:#24292E">(List&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDataValues</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> IntStream.</span><span style="color:#6F42C1">range</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">, msgDataValues.</span><span style="color:#6F42C1">size</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">mapToObj</span><span style="color:#24292E">(idx </span><span style="color:#D73A49">-&gt;</span><span style="color:#005CC5"> super</span><span style="color:#24292E">.</span><span style="color:#6F42C1">newMsgData</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getWriteOffTempMsgDataNames</span><span style="color:#24292E">()[idx], msgDataValues.</span><span style="color:#6F42C1">get</span><span style="color:#24292E">(idx)))</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">collect</span><span style="color:#24292E">(Collectors.</span><span style="color:#6F42C1">toList</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 构建 WxMaSubscribeMessage 参数</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> toUserOpenId</span><span style="color:#6A737D"> the to user open id</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> msgDatas</span><span style="color:#6A737D">     the msg datas</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the wx ma subscribe message</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    protected</span><span style="color:#24292E"> WxMaSubscribeMessage </span><span style="color:#6F42C1">buildWxMaSubscribeMessage</span><span style="color:#24292E">(String </span><span style="color:#E36209">toUserOpenId</span><span style="color:#24292E">, List&lt;</span><span style="color:#D73A49">WxMaSubscribeMessage</span><span style="color:#24292E">.</span><span style="color:#D73A49">MsgData</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">msgDatas</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> WxMaSubscribeMessage.</span><span style="color:#6F42C1">builder</span><span style="color:#24292E">()</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">templateId</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getWriteOffTempId</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">toUser</span><span style="color:#24292E">(toUserOpenId)</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">page</span><span style="color:#24292E">(SystemConstants.WX_MA_SUB_MSG_JUMP_PAGE)</span></span>
+<span class="line"><span style="color:#6A737D">                // 消息参数</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">data</span><span style="color:#24292E">(msgDatas)</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">miniprogramState</span><span style="color:#24292E">(wxMaSubMsgProperties.</span><span style="color:#6F42C1">getState</span><span style="color:#24292E">())</span></span>
+<span class="line"><span style="color:#24292E">                .</span><span style="color:#6F42C1">build</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<h2 id="section-6">微信订阅回调接口</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.example.service.submsg;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.List;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 微信订阅回调接口</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2022 -2-18 14:49</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> interface</span><span style="color:#6F42C1"> SubMsgCallBack</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 发送消息后回调</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> accountId</span><span style="color:#6A737D">   微信小程序账户id</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> businessIds</span><span style="color:#6A737D"> 业务ids</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    default</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> callBack</span><span style="color:#24292E">(Long </span><span style="color:#E36209">accountId</span><span style="color:#24292E">, List&lt;</span><span style="color:#D73A49">Long</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">businessIds</span><span style="color:#24292E">) {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/java-generics/"><span>同分类 · 上一篇</span><strong>Java 泛型学习资料</strong></a><a href="/article-library-site/tech/spring-aop-advice-order/" class="next-article"><span>同分类 · 下一篇</span><strong>Spring AOP：通知的执行顺序</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

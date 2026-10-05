@@ -1,0 +1,301 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="ZooKeeper 的节点、监听、命令行与集群实验笔记，保留原有示例。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="ZooKeeper 入门笔记"><meta property="og:description" content="ZooKeeper 的节点、监听、命令行与集群实验笔记，保留原有示例。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>ZooKeeper 入门笔记 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>中间件与数据</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">14 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">Zookeeper是什么</a><a href="#section-2" style="--indent:1">1、 文件系统</a><a href="#section-3" style="--indent:1">2、节点类型</a><a href="#section-4" style="--indent:1">3、 监听通知机制</a><a href="#section-5" style="--indent:1">4、 Zookeeper角色</a><a href="#section-6" style="--indent:1">5、Watcher监听机制</a><a href="#section-7" style="--indent:0">Zookeeper能做什么</a><a href="#section-8" style="--indent:0">Zookeeper单机模式安装</a><a href="#section-9" style="--indent:0">Zookeeper使用</a><a href="#section-10" style="--indent:1">使用客户端命令行操作zookeeper</a><a href="#section-11" style="--indent:1">可视化工具PrettyZoo</a><a href="#section-12" style="--indent:1">使用Java API操作zookeeper</a><a href="#section-13" style="--indent:0">Zookeeper集群模式安装</a><a href="#section-14" style="--indent:0">windows下zookeeper集群安装 - 郭慕荣 - 博客园</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 中间件与数据</p><h1 id="article-title">ZooKeeper 入门笔记</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 21 分钟</span></div><p class="tech-dates">原笔记 2021-09-26<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>ZooKeeper 的节点、监听、命令行与集群实验笔记，保留原有示例。</p>
+<blockquote>
+<p>版本说明：Java 客户端与部分命令示例来自 ZooKeeper 3.4.x 的学习环境，配置和 API 请按实际使用版本核对。</p>
+</blockquote>
+<p><a id="r8lKT"></a></p>
+<h2 id="section-1">Zookeeper是什么</h2>
+<p>官方文档上这么解释zookeeper，它是一个分布式服务框架，是Apache Hadoop 的一个子项目，它主要是用来解决分布式应用中经常遇到的一些数据管理问题，如：统一命名服务、状态同步服务、集群管理、分布式应用配置项的管理等。\</p>
+<p>上面的解释有点抽象，简单来说 <strong>zookeeper=文件系统+监听通知机制</strong>。\</p>
+<p><a id="TG3sy"></a></p>
+<h3 id="section-2">1、 文件系统</h3>
+<p>Zookeeper维护一个类似文件系统的数据结构：</p>
+<p><img src="/article-library-site/media/a7efa6d426d9953bc0.webp" alt="Zookeeper入门配图 1" loading="lazy" decoding="async" />\</p>
+<p>ZooKeeper是通过znode-value的形式存储数据的，znode有点像目录，而/目录就是ZooKeeper中的根目录</p>
+<p>ZNode是ZooKeeper中数据的最小单元，每个ZNode上都可以保存数据，同时可以过载子节点，因此构成了一个层次化的命名空间，也就是树。</p>
+<p>每个子目录项如 NameService 都被称作为 znode(目录节点)，和文件系统一样，我们能够自由的增加、删除znode，在一个znode下增加、删除子znode，唯一的不同在于znode是可以存储数据的。</p>
+<p>在ZooKeeper中，事务是指能够改变ZooKeeper服务器状态的操作，我们也称之为事务操作或更新操作，一般包括数据节点创建与删除、数据节点内容更新和客户端会话创建与失效等操作。对于每一个事务请求，ZooKeeper会为期分配一个全局唯一的事务ID，用ZXID来表示。</p>
+<p><a id="mUep7"></a></p>
+<h3 id="section-3">2、节点类型</h3>
+<p>ZooKeeper中的节点（znode）是有生命周期的，这取决于节点的类型。类型有主要有下面四种：</p>
+<ul>
+<li>持久节点（Persistent）：默认节点类型，节点创建后，除非手动删除， 否则节点一直存在于 Zookeeper 上。</li>
+<li>持久顺序节点（Persistent Sequential）：具有持久节点特性，节点名后边会追加一个由父节点维护的自增整型数字后缀。</li>
+<li>临时节点（Ephemeral）：临时存在，当创建节点的会话关闭时，节点被删除。临时节点的生命周期与客户端会话绑定，一旦客户端会话失效（客户端与zookeeper 连接断开不一定会话失效），那么这个客户端创建的所有临时节点都会被移除。</li>
+<li>临时顺序节点（Ephemeral Sequential）：具有临时节点特性，节点名后边会追加一个由父节点维护的自增整型数字后缀。</li>
+</ul>
+<p>如果你用命令行创建节点的话，<strong>顺序特性对应</strong><strong>-s**<strong>选项，临时特性对应</strong></strong>-e**<strong>选项</strong>，比如如下命令：</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># 创建持久顺序节点</span></span>
+<span class="line"><span>create -s /test/seq segText</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 创建临时节点</span></span>
+<span class="line"><span>create -e /test/tmp tmpText</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span> # 创建临时顺序节点</span></span>
+<span class="line"><span>create -s -e /test/seqTmp setTmpText</span></span></code></pre></div>
+<p>创建成功后显示如下：\</p>
+<p><img src="/article-library-site/media/ca4ed4ab05e3d096de.webp" alt="Zookeeper入门配图 2" loading="lazy" decoding="async" /></p>
+<p><strong>ZK节点属性如下：</strong></p>
+<p><img src="/article-library-site/media/3342374a8c4f488817.webp" alt="Zookeeper入门配图 3" loading="lazy" decoding="async" /></p>
+<p><a id="sMu9s"></a></p>
+<h3 id="section-4">3、 监听通知机制</h3>
+<p>****\</p>
+<p>客户端注册监听它关心的目录节点，当目录节点发生变化（数据改变、被删除、子目录节点增加删除）时，zookeeper会通知客户端。</p>
+<p>就这么简单，下面我们看看Zookeeper能做点什么呢？</p>
+<p><a id="Nb6iv"></a></p>
+<h3 id="section-5">4、 Zookeeper角色</h3>
+<p>leader领导者、follower跟随者、observer观察者、client客户端</p>
+<p>（1）leader：负责投票的发起和决议，更新系统状态，处理事务请求。</p>
+<p>（2）follower跟随者：参与投票，接收客户端请求，处理非事务请求并返回结果，转发事务请求给leader。</p>
+<p>（3）observer观察者：不参与投票过程，只同步leader状态，为了扩展系统，提高读写速度。也接收客户端请求，处理非事务请求并返回结果，转发事务请求给leader。</p>
+<p>（4）client客户端：请求发起方。</p>
+<p><a id="v3vYD"></a></p>
+<h3 id="section-6">5、Watcher监听机制</h3>
+<p>ZooKeeper的Watcher机制主要包括客户端线程、客户端WatcherManager和ZooKeeper服务器三部分。在具体工作流程上，简单来讲，客户端在ZooKeeper服务器注册Watcher的同时，会将Watcher对象存储在客户端的WatcherManager中。当ZooKeeper服务器端触发Watcher事件后，会向客户端发送通知，客户端线程从WatcherManager中取出对应的Watcher对象来执行回调逻辑。</p>
+<p>（1）监控目录节点数据变化</p>
+<p>（2）监控子目录变化</p>
+<p>（3）一旦这些节点发生变化，服务器就会通知所有设置在这个目录节点上的Watcher，使得每个客户端都很快知道其关注的目录节点的状态发生变化，从而做出相应反应。</p>
+<p><strong>节点类型和Watcher监听机制，是解决所有应用场景问题的出发点和落脚点。</strong></p>
+<ul>
+<li>****\</li>
+</ul>
+<p><em><strong>补充：</strong></em></p>
+<p><strong>1、事务性请求</strong></p>
+<p>Zookeeper通常都是以集群模式运行的，也就是Zookeeper集群中各个节点的数据需要保持一致的。但是和Mysql集群不一样的是：</p>
+<ul>
+<li>Mysql集群中，从服务器是异步从主服务器同步数据的，这中间的间隔时间可以比较长。</li>
+<li>Zookeeper集群中，当某一个集群节点接收到一个写请求操作时，该节点需要将这个写请求操作发送给其他节点，以使其他节点同步执行这个写请求操作，从而达到各个节点上的数据保持一致，也就是数据一致性。我们通常说Zookeeper保证CAP理论中的CP就只这个意思。</li>
+</ul>
+<p><strong>Zookeeper集群底层是怎么保证数据一致性的，其实是用的两阶段提交+过半机制来保证的。</strong></p>
+<p>事务性请求包括：更新操作、新增操作、删除操作，结合上面的分析，因为这些操作是会影响数据的，所以要保证这些操作在整个集群内的事务性，所以这些操作就是事务性请求。</p>
+<p><strong>2、非事务性请求</strong></p>
+<p>那么非事务性请求就好理解的，像查询操作、exist操作这些不影响数据的操场，就不需要集群来保持事务性，所以这些操场就是非事务性请求。</p>
+<p><strong>Zookeeper在处理事务性请求时，比处理非事务性请求要复杂很多</strong></p>
+<p><a id="bUcGJ"></a></p>
+<h2 id="section-7">Zookeeper能做什么</h2>
+<p>zookeeper功能非常强大，可以实现诸如分布式应用配置管理、统一命名服务、状态同步服务、集群管理等功能，我们这里拿比较简单的分布式应用配置管理为例来说明。</p>
+<p>假设我们的程序是分布式部署在多台机器上，如果我们要改变程序的配置文件，需要逐台机器去修改，非常麻烦，现在把这些配置全部放到zookeeper上去，保存在 zookeeper 的某个目录节点中，然后所有相关应用程序对这个目录节点进行监听，一旦配置信息发生变化，每个应用程序就会收到 zookeeper 的通知，然后从 zookeeper 获取新的配置信息应用到系统中。</p>
+<p><img src="/article-library-site/media/c9620bef135a6c9a0a.webp" alt="Zookeeper入门配图 4" loading="lazy" decoding="async" /></p>
+<p>如上，你大致应该了解zookeeper是个什么东西，大概能做些什么了，我们马上来学习下zookeeper的安装及使用，并开发一个小程序来实现zookeeper这个分布式配置管理的功能。</p>
+<p><a id="kXPRh"></a></p>
+<p><a id="Lj4BS"></a></p>
+<h2 id="section-8">Zookeeper单机模式安装</h2>
+<p><strong>Step1</strong>：配置JAVA环境，检验环境：java -version</p>
+<p><strong>Step2</strong>：下载并解压 zookeeper</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># cd /usr/local</span></span>
+<span class="line"><span># wget http://mirror.bit.edu.cn/apache/zookeeper/stable/zookeeper-3.4.12.tar.gz</span></span>
+<span class="line"><span># tar -zxvf zookeeper-3.4.12.tar.gz</span></span>
+<span class="line"><span># cd zookeeper-3.4.12</span></span></code></pre></div>
+<p><strong>Step3</strong>：重命名配置文件zoo_sample.cfg</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># cp conf/zoo_sample.cfg conf/zoo.cfg</span></span></code></pre></div>
+<p><strong>Step4</strong>：启动zookeeper</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># bin/zkServer.sh start</span></span></code></pre></div>
+<p><strong>Step5</strong>：检测是否成功启动，用zookeeper客户端连接下服务端</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># bin/zkCli.sh</span></span></code></pre></div>
+<p><a id="A1fVH"></a></p>
+<p><a id="ZOU5e"></a></p>
+<h2 id="section-9">Zookeeper使用</h2>
+<p><a id="VWqWF"></a></p>
+<h3 id="section-10">使用客户端命令行操作zookeeper</h3>
+<ul>
+<li>首先使用zkCli命令行工具连接到ZooKeeper；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>zkCli.cmd -server 127.0.0.1:2181</span></span></code></pre></div>
+<ul>
+<li>通过help可以命令查看ZooKeeper的常用命令；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 0] help</span></span>
+<span class="line"><span>ZooKeeper -server host:port -client-configuration properties-file cmd args</span></span>
+<span class="line"><span>        addWatch [-m mode] path # optional mode is one of [PERSISTENT, PERSISTENT_RECURSIVE] - default is PERSISTENT_RECURSIVE</span></span>
+<span class="line"><span>        addauth scheme auth</span></span>
+<span class="line"><span>        close</span></span>
+<span class="line"><span>        config [-c] [-w] [-s]</span></span>
+<span class="line"><span>        connect host:port</span></span>
+<span class="line"><span>        create [-s] [-e] [-c] [-t ttl] path [data] [acl]</span></span>
+<span class="line"><span>        delete [-v version] path</span></span>
+<span class="line"><span>        deleteall path [-b batch size]</span></span>
+<span class="line"><span>        delquota [-n|-b|-N|-B] path</span></span>
+<span class="line"><span>        get [-s] [-w] path</span></span>
+<span class="line"><span>        getAcl [-s] path</span></span>
+<span class="line"><span>        getAllChildrenNumber path</span></span>
+<span class="line"><span>        getEphemerals path</span></span>
+<span class="line"><span>        history</span></span>
+<span class="line"><span>        listquota path</span></span>
+<span class="line"><span>        ls [-s] [-w] [-R] path</span></span>
+<span class="line"><span>        printwatches on|off</span></span>
+<span class="line"><span>        quit</span></span>
+<span class="line"><span>        reconfig [-s] [-v version] [[-file path] | [-members serverID=host:port1:port2;port3[,...]*]] | [-add serverId=host:port1:port2;port3[,...]]* [-remove serverId[,...]*]</span></span>
+<span class="line"><span>        redo cmdno</span></span>
+<span class="line"><span>        removewatches path [-c|-d|-a] [-l]</span></span>
+<span class="line"><span>        set [-s] [-v version] path data</span></span>
+<span class="line"><span>        setAcl [-s] [-v version] [-R] path acl</span></span>
+<span class="line"><span>        setquota -n|-b|-N|-B val path</span></span>
+<span class="line"><span>        stat [-w] path</span></span>
+<span class="line"><span>        sync path</span></span>
+<span class="line"><span>        version</span></span>
+<span class="line"><span>        whoami</span></span></code></pre></div>
+<ul>
+<li>大家都知道Redis是通过key-value的形式存储数据的，而ZooKeeper是通过znode-value的形式存储数据的，znode有点像目录，而/目录就是ZooKeeper中的根目录，通过如下命令可以查看所有znode；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 1] ls /</span></span>
+<span class="line"><span>[zookeeper]</span></span></code></pre></div>
+<p>****\</p>
+<ul>
+<li>创建一个znode叫做/zk_test，存储字符串my_data，这用起来有点像Redis；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 2] create /zk_test my_data</span></span>
+<span class="line"><span>Created /zk_test</span></span></code></pre></div>
+<ul>
+<li>查看所有znode，可以看到zk_test这个znode；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 3] ls /</span></span>
+<span class="line"><span>[zk_test, zookeeper]</span></span></code></pre></div>
+<p>****\</p>
+<ul>
+<li>获取znode中存储的数据；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 4] get /zk_test</span></span>
+<span class="line"><span>my_data</span></span></code></pre></div>
+<ul>
+<li>修改znode中的数据；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 5] set /zk_test test_data</span></span>
+<span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 6] get /zk_test</span></span>
+<span class="line"><span>test_data</span></span></code></pre></div>
+<ul>
+<li>删除znode中的数据；</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 7] delete /zk_test</span></span>
+<span class="line"><span>[zk: 127.0.0.1:2181(CONNECTED) 8] ls /</span></span>
+<span class="line"><span>[zookeeper]</span></span></code></pre></div>
+<p><a id="GzpBp"></a></p>
+<p><a id="xEzrs"></a></p>
+<h3 id="section-11">可视化工具PrettyZoo</h3>
+<p>移步：<a href="https://zhuanlan.zhihu.com/p/382793272">https://zhuanlan.zhihu.com/p/382793272</a></p>
+<p>其它可视化工具：<a href="https://www.cnblogs.com/ibigboy/p/16501139.html">几款ZooKeeper可视化工具，最后一个美炸了</a></p>
+<p><a id="dZRue"></a></p>
+<img src="/article-library-site/media/51df4b2a65f7b86320.webp" alt="Zookeeper入门配图 5" loading="lazy" decoding="async" /><p><a id="TOl0V"></a></p>
+<p><a id="VMnRI"></a></p>
+<h3 id="section-12">使用Java API操作zookeeper</h3>
+<p>使用Java API操作zookeeper需要引用下面的包</p>
+<p><img src="/article-library-site/media/f9a137f6b29c143e6b.webp" alt="Zookeeper入门配图 6" loading="lazy" decoding="async" />\</p>
+<p>下面我们来实现上面说的分布式配置中心：</p>
+<p>1、在zookeeper里增加一个目录节点，并且把配置信息存储在里面</p>
+<p><img src="/article-library-site/media/c4759eefc60253ed23.webp" alt="Zookeeper入门配图 7" loading="lazy" decoding="async" /></p>
+<p>2、启动两个zookeeper客户端程序，代码如下所示</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.concurrent.CountDownLatch;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.zookeeper.WatchedEvent;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.zookeeper.Watcher;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.zookeeper.Watcher.Event.EventType;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.zookeeper.Watcher.Event.KeeperState;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.zookeeper.ZooKeeper;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.apache.zookeeper.data.Stat;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 分布式配置中心demo</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> ZooKeeperProSync</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> Watcher</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#24292E"> CountDownLatch connectedSemaphore </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> CountDownLatch</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#24292E"> ZooKeeper zk </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#24292E"> Stat stat </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> Stat</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> main</span><span style="color:#24292E">(</span><span style="color:#D73A49">String</span><span style="color:#24292E">[] </span><span style="color:#E36209">args</span><span style="color:#24292E">) </span><span style="color:#D73A49">throws</span><span style="color:#24292E"> Exception {</span></span>
+<span class="line"><span style="color:#6A737D">        //zookeeper配置数据存放路径</span></span>
+<span class="line"><span style="color:#24292E">        String path </span><span style="color:#D73A49">=</span><span style="color:#032F62"> "/username"</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#6A737D">        //连接zookeeper并且注册一个默认的监听器</span></span>
+<span class="line"><span style="color:#24292E">        zk </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> ZooKeeper</span><span style="color:#24292E">(</span><span style="color:#032F62">"192.0.2.100:2181"</span><span style="color:#24292E">, </span><span style="color:#005CC5">5000</span><span style="color:#24292E">, </span><span style="color:#6A737D">//</span></span>
+<span class="line"><span style="color:#D73A49">                new</span><span style="color:#6F42C1"> ZooKeeperProSync</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6A737D">        //等待zk连接成功的通知</span></span>
+<span class="line"><span style="color:#24292E">        connectedSemaphore.</span><span style="color:#6F42C1">await</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#6A737D">        //获取path目录节点的配置数据，并注册默认的监听器</span></span>
+<span class="line"><span style="color:#24292E">        System.out.</span><span style="color:#6F42C1">println</span><span style="color:#24292E">(</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> String</span><span style="color:#24292E">(zk.</span><span style="color:#6F42C1">getData</span><span style="color:#24292E">(path, </span><span style="color:#005CC5">true</span><span style="color:#24292E">, stat)));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">        Thread.</span><span style="color:#6F42C1">sleep</span><span style="color:#24292E">(Integer.MAX_VALUE);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> process</span><span style="color:#24292E">(WatchedEvent </span><span style="color:#E36209">event</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (KeeperState.SyncConnected </span><span style="color:#D73A49">==</span><span style="color:#24292E"> event.</span><span style="color:#6F42C1">getState</span><span style="color:#24292E">()) {  </span><span style="color:#6A737D">//zk连接成功通知事件</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (EventType.None </span><span style="color:#D73A49">==</span><span style="color:#24292E"> event.</span><span style="color:#6F42C1">getType</span><span style="color:#24292E">() </span><span style="color:#D73A49">&amp;&amp;</span><span style="color:#005CC5"> null</span><span style="color:#D73A49"> ==</span><span style="color:#24292E"> event.</span><span style="color:#6F42C1">getPath</span><span style="color:#24292E">()) {</span></span>
+<span class="line"><span style="color:#24292E">                connectedSemaphore.</span><span style="color:#6F42C1">countDown</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">            } </span><span style="color:#D73A49">else</span><span style="color:#D73A49"> if</span><span style="color:#24292E"> (event.</span><span style="color:#6F42C1">getType</span><span style="color:#24292E">() </span><span style="color:#D73A49">==</span><span style="color:#24292E"> EventType.NodeDataChanged) {  </span><span style="color:#6A737D">//zk目录节点数据变化通知事件</span></span>
+<span class="line"><span style="color:#D73A49">                try</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">                    System.out.</span><span style="color:#6F42C1">println</span><span style="color:#24292E">(</span><span style="color:#032F62">"配置已修改，新值为："</span><span style="color:#D73A49"> +</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> String</span><span style="color:#24292E">(zk.</span><span style="color:#6F42C1">getData</span><span style="color:#24292E">(event.</span><span style="color:#6F42C1">getPath</span><span style="color:#24292E">(), </span><span style="color:#005CC5">true</span><span style="color:#24292E">, stat)));</span></span>
+<span class="line"><span style="color:#24292E">                } </span><span style="color:#D73A49">catch</span><span style="color:#24292E"> (Exception </span><span style="color:#E36209">e</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">                }</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>两个程序启动后都正确的读取到了zookeeper的/username目录节点下的数据'qingfeng'</p>
+<p>3、我们在zookeeper里修改下目录节点/username下的数据</p>
+<p><img src="/article-library-site/media/89e24b0f99cd650627.webp" alt="Zookeeper入门配图 8" loading="lazy" decoding="async" />\</p>
+<p>修改完成后，我们看见两个程序后台都及时收到了他们监听的目录节点数据变更后的值，如下所示</p>
+<p><img src="/article-library-site/media/58200d3c37f9b097ca.webp" alt="Zookeeper入门配图 9" loading="lazy" decoding="async" />\</p>
+<p><a id="QFkqv"></a></p>
+<p><a id="V2bbg"></a></p>
+<h2 id="section-13">Zookeeper集群模式安装</h2>
+<p><a id="noI1N"></a></p>
+<h2 id="section-14"><a href="https://www.cnblogs.com/jelly12345/p/15602621.html">windows下zookeeper集群安装 - 郭慕荣 - 博客园</a></h2>
+<p>本例搭建的是伪集群模式，即一台机器上启动三个zookeeper实例组成集群，真正的集群模式无非就是实例IP地址不同，搭建方法没有区别</p>
+<p><strong>Step1</strong>：配置JAVA环境，检验环境：java -version</p>
+<p><strong>Step2</strong>：下载并解压zookeeper</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># cd /usr/local</span></span>
+<span class="line"><span># wget http://mirror.bit.edu.cn/apache/zookeeper/stable/zookeeper-3.4.12.tar.gz</span></span>
+<span class="line"><span># tar -zxvf zookeeper-3.4.12.tar.gz</span></span>
+<span class="line"><span># cd zookeeper-3.4.12</span></span></code></pre></div>
+<p><strong>Step3</strong>：重命名 zoo_sample.cfg文件</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># cp conf/zoo_sample.cfg conf/zoo-1.cfg</span></span></code></pre></div>
+<p><strong>Step4</strong>：修改配置文件zoo-1.cfg，原配置文件里有的，修改成下面的值，没有的则加上</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># vim conf/zoo-1.cfg</span></span>
+<span class="line"><span>dataDir=/tmp/zookeeper-1</span></span>
+<span class="line"><span>clientPort=2181</span></span>
+<span class="line"><span>server.1=127.0.0.1:2888:3888</span></span>
+<span class="line"><span>server.2=127.0.0.1:2889:3889</span></span>
+<span class="line"><span>server.3=127.0.0.1:2890:3890</span></span></code></pre></div>
+<p><strong>配置说明</strong></p>
+<ul>
+<li>tickTime：这个时间是作为 Zookeeper 服务器之间或客户端与服务器之间维持心跳的时间间隔，也就是每个 tickTime 时间就会发送一个心跳。</li>
+<li>initLimit：这个配置项是用来配置 Zookeeper 接受客户端（这里所说的客户端不是用户连接 Zookeeper 服务器的客户端，而是 Zookeeper 服务器集群中连接到 Leader 的 Follower 服务器）初始化连接时最长能忍受多少个心跳时间间隔数。当已经超过 10个心跳的时间（也就是 tickTime）长度后 Zookeeper 服务器还没有收到客户端的返回信息，那么表明这个客户端连接失败。总的时间长度就是 10*2000=20 秒</li>
+<li>syncLimit：这个配置项标识 Leader 与 Follower 之间发送消息，请求和应答时间长度，最长不能超过多少个 tickTime 的时间长度，总的时间长度就是 5*2000=10秒</li>
+<li>dataDir：顾名思义就是 Zookeeper 保存数据的目录，默认情况下，Zookeeper 将写数据的日志文件也保存在这个目录里。</li>
+<li>clientPort：这个端口就是客户端连接 Zookeeper 服务器的端口，Zookeeper 会监听这个端口，接受客户端的访问请求。</li>
+<li>server.A=B：C：D：其中 A 是一个数字，表示这个是第几号服务器；B 是这个服务器的 ip 地址；C 表示的是这个服务器与集群中的 Leader 服务器交换信息的端口；D 表示的是万一集群中的 Leader 服务器挂了，需要一个端口来重新进行选举，选出一个新的 Leader，而这个端口就是用来执行选举时服务器相互通信的端口。如果是伪集群的配置方式，由于 B 都是一样，所以不同的 Zookeeper 实例通信端口号不能一样，所以要给它们分配不同的端口号。</li>
+</ul>
+<p><strong>Step5</strong>：再从zoo-1.cfg复制两个配置文件zoo-2.cfg和zoo-3.cfg，只需修改dataDir和clientPort不同即可</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># cp conf/zoo-1.cfg conf/zoo-2.cfg</span></span>
+<span class="line"><span># cp conf/zoo-1.cfg conf/zoo-3.cfg</span></span>
+<span class="line"><span># vim conf/zoo-2.cfg</span></span>
+<span class="line"><span>dataDir=/tmp/zookeeper-2</span></span>
+<span class="line"><span>clientPort=2182</span></span>
+<span class="line"><span># vim conf/zoo-2.cfg</span></span>
+<span class="line"><span>dataDir=/tmp/zookeeper-3</span></span>
+<span class="line"><span>clientPort=2183</span></span></code></pre></div>
+<p><strong>Step6</strong>：标识Server ID</p>
+<p>创建三个文件夹/tmp/zookeeper-1，/tmp/zookeeper-2，/tmp/zookeeper-2，在每个目录中创建文件myid 文件，写入当前实例的server id，即1.2.3</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># cd /tmp/zookeeper-1</span></span>
+<span class="line"><span># vim myid</span></span>
+<span class="line"><span>1</span></span>
+<span class="line"><span># cd /tmp/zookeeper-2</span></span>
+<span class="line"><span># vim myid</span></span>
+<span class="line"><span>2</span></span>
+<span class="line"><span># cd /tmp/zookeeper-3</span></span>
+<span class="line"><span># vim myid</span></span>
+<span class="line"><span>3</span></span></code></pre></div>
+<p><strong>Step7</strong>：启动三个zookeeper实例</p>
+<div class="code-example"><div class="code-toolbar"><span>css</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># bin/zkServer.sh start conf/zoo-1.cfg</span></span>
+<span class="line"><span># bin/zkServer.sh start conf/zoo-2.cfg</span></span>
+<span class="line"><span># bin/zkServer.sh start conf/zoo-3.cfg</span></span></code></pre></div>
+<p><strong>Step8</strong>：检测集群状态，也可以直接用命令“zkCli.sh -server IP:PORT”连接zookeeper服务端检测</p>
+<p><img src="/article-library-site/media/b2b3d90ac860445f41.webp" alt="Zookeeper入门配图 10" loading="lazy" decoding="async" />\</p>
+<p>至此，我们对zookeeper就算有了一个入门的了解，当然zookeeper远比我们这里描述的功能多，比如用zookeeper实现集群管理，分布式锁，分布式队列，zookeeper集群leader选举等等\</p>
+<p><a href="https://www.roncoo.com/course/view/255bac222b1b4300b42838b58fea3a2e">\
+</a></p>
+<p>文章参考：</p>
+<ul>
+<li><a href="https://my.oschina.net/u/3796575/blog/1845035">Zookeeper入门看这篇就够了</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/382793272">顶级分布式开源项目，配上这款可视化工具，真香！</a></li>
+<li><a href="https://www.cnblogs.com/guoyu1/p/11971041.html">Zookeeper数据类型、节点类型、角色、watcher监听机制</a></li>
+</ul>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/mysql8-authentication/"><span>同分类 · 上一篇</span><strong>MySQL 8.0 认证方式与兼容性</strong></a><a href="/article-library-site/tech/spring-boot-redisson-cluster/" class="next-article"><span>同分类 · 下一篇</span><strong>Spring Boot 2.0 + Redisson + Redis 集群</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

@@ -1,0 +1,566 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="让枚举参与 Spring Boot 的请求参数转换、JSON 序列化和数据库字段映射。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="Spring Boot 中的枚举使用"><meta property="og:description" content="让枚举参与 Spring Boot 的请求参数转换、JSON 序列化和数据库字段映射。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>Spring Boot 中的枚举使用 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">14 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">前后端交互，序列化与反序列化</a><a href="#section-2" style="--indent:1">序列化（将枚举对象序列化为json给前端）</a><a href="#section-3" style="--indent:1">反序列化（从前端接收枚举值反序列化为枚举对象）</a><a href="#section-4" style="--indent:2">普通请求</a><a href="#section-5" style="--indent:2">自定义的转换器</a><a href="#section-6" style="--indent:2">使自定义的转换器工厂生效</a><a href="#section-7" style="--indent:2">看下效果</a><a href="#section-8" style="--indent:2">POST json 请求</a><a href="#section-9" style="--indent:2">局部配置</a><a href="#section-10" style="--indent:2">全局配置</a><a href="#section-11" style="--indent:2">看下效果</a><a href="#section-12" style="--indent:0">数据库交互，入库与出库</a><a href="#section-13" style="--indent:1">方式一：</a><a href="#section-14" style="--indent:1">方式二：</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">Spring Boot 中的枚举使用</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 28 分钟</span></div><p class="tech-dates">原笔记 2021-10-09<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>让枚举参与 Spring Boot 的请求参数转换、JSON 序列化和数据库字段映射。</p>
+<blockquote>
+<p>示例说明：代码包含请求转换、Jackson 和 MyBatis-Plus 等不同层的用法，枚举与业务类需配套使用；不是单文件即可运行的完整项目。</p>
+</blockquote>
+<p><a id="CZooE"></a></p>
+<h2 id="section-1">前后端交互，序列化与反序列化</h2>
+<p><a id="Th8Qm"></a></p>
+<h3 id="section-2">序列化（将枚举对象序列化为json给前端）</h3>
+<p>推荐将枚举统一序列化为 json ，REST的风格接口都是序列化为json</p>
+<p>直接在枚举类添加@JsonFormat***(***shape = JsonFormat.Shape.<em><strong>OBJECT)</strong></em> 注解即可</p>
+<p>如下：</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.enums;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.EnumValue;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.IEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.fasterxml.jackson.annotation.JsonFormat;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.AllArgsConstructor;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.Getter;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * 性别枚举</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">JsonFormat</span><span style="color:#24292E">(</span><span style="color:#005CC5">shape</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> JsonFormat.Shape.OBJECT)</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Getter</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> enum</span><span style="color:#6F42C1"> GenderEnum</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> IEnum</span><span style="color:#24292E">&lt;</span><span style="color:#D73A49">Integer</span><span style="color:#24292E">&gt; {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 男</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#005CC5">    MALE</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">, </span><span style="color:#032F62">"男"</span><span style="color:#24292E">),</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 女</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#005CC5">    FEMALE</span><span style="color:#24292E">(</span><span style="color:#005CC5">2</span><span style="color:#24292E">, </span><span style="color:#032F62">"女"</span><span style="color:#24292E">),</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 未知</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#005CC5">    UNKNOWN</span><span style="color:#24292E">(</span><span style="color:#005CC5">3</span><span style="color:#24292E">, </span><span style="color:#032F62">"未知"</span><span style="color:#24292E">),</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    ;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">EnumValue</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> Integer value;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> String description;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p>返回值：</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#032F62">  "code"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 2000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">  "msg"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "请求/处理成功！"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">  "data"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> [</span></span>
+<span class="line"><span style="color:#24292E">    {</span></span>
+<span class="line"><span style="color:#032F62">      "id"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1446888414960676866</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800055000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800055000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "name"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "jack"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "age"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "gender"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#032F62">        "value"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 2</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "description"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "女"</span></span>
+<span class="line"><span style="color:#24292E">      },</span></span>
+<span class="line"><span style="color:#032F62">      "workAge"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 5</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "wages"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10000.00</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "hobbies"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> [</span></span>
+<span class="line"><span style="color:#032F62">        "唱歌"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "跳舞"</span></span>
+<span class="line"><span style="color:#24292E">      ],</span></span>
+<span class="line"><span style="color:#032F62">      "version"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "deleted"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "did"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span></span>
+<span class="line"><span style="color:#24292E">    },</span></span>
+<span class="line"><span style="color:#24292E">    {</span></span>
+<span class="line"><span style="color:#032F62">      "id"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1446888838371414018</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800156000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800156000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "name"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "jack"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "age"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "gender"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#032F62">        "value"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 2</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "description"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "女"</span></span>
+<span class="line"><span style="color:#24292E">      },</span></span>
+<span class="line"><span style="color:#032F62">      "workAge"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 5</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "wages"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10000.00</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "hobbies"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> [</span></span>
+<span class="line"><span style="color:#032F62">        "唱歌"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "跳舞"</span></span>
+<span class="line"><span style="color:#24292E">      ],</span></span>
+<span class="line"><span style="color:#032F62">      "version"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "deleted"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "did"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span></span>
+<span class="line"><span style="color:#24292E">    },</span></span>
+<span class="line"><span style="color:#24292E">    {</span></span>
+<span class="line"><span style="color:#032F62">      "id"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1446889136909377538</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800227000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800227000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "name"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "jack"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "age"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "gender"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#032F62">        "value"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 2</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "description"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "女"</span></span>
+<span class="line"><span style="color:#24292E">      },</span></span>
+<span class="line"><span style="color:#032F62">      "workAge"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 5</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "wages"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10000.00</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "hobbies"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> [</span></span>
+<span class="line"><span style="color:#032F62">        "唱歌"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "跳舞"</span></span>
+<span class="line"><span style="color:#24292E">      ],</span></span>
+<span class="line"><span style="color:#032F62">      "version"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "deleted"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "did"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span></span>
+<span class="line"><span style="color:#24292E">    },</span></span>
+<span class="line"><span style="color:#24292E">    {</span></span>
+<span class="line"><span style="color:#032F62">      "id"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1446889611947855873</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "createdTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800340000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedBy"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "updatedTime"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1633800340000</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "name"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "jack"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "age"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "gender"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#032F62">        "value"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 2</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "description"</span><span style="color:#D73A49">:</span><span style="color:#032F62"> "女"</span></span>
+<span class="line"><span style="color:#24292E">      },</span></span>
+<span class="line"><span style="color:#032F62">      "workAge"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 5</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "wages"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 10000.00</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "hobbies"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> [</span></span>
+<span class="line"><span style="color:#032F62">        "唱歌"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">        "跳舞"</span></span>
+<span class="line"><span style="color:#24292E">      ],</span></span>
+<span class="line"><span style="color:#032F62">      "version"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "deleted"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#032F62">      "did"</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> 1</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">  ]</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p><a id="JqcXG"></a></p>
+<h3 id="section-3">反序列化（从前端接收枚举值反序列化为枚举对象）</h3>
+<p>需要分情况处理</p>
+<p><a id="upS6D"></a></p>
+<h4 id="section-4">普通请求</h4>
+<p>对于诸如Get请求，Post表单请求的普通请求，可以使用自定义的转换器工厂进行处理，我们需要继承<strong>ConverterFactory</strong>类并指定想要处理的类型。</p>
+<p><a id="MbmhI"></a></p>
+<h5 id="section-5">自定义的转换器</h5>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.web.config;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.EnumValue;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.baomidou.mybatisplus.annotation.IEnum;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.sun.istack.internal.NotNull;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.extern.slf4j.Slf4j;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.core.convert.converter.Converter;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.core.convert.converter.ConverterFactory;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.util.ReflectionUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.util.StringUtils;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.lang.reflect.Field;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.lang.reflect.InvocationTargetException;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.lang.reflect.Method;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.Arrays;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.Map;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.Optional;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.concurrent.ConcurrentHashMap;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * String 类型参数转为 Enum 类型，适用 Get请求，Post表单请求的普通请求，不适用 POST json 请求</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *     IEnum 是 MybatisPlus 中的自定义枚举接口，也可以自己写一个</span></span>
+<span class="line"><span style="color:#6A737D"> *     需要转换的枚举实现 com.baomidou.mybatisplus.annotation.IEnum 接口 或者 在需要转换的属性上加 @com.baomidou.mybatisplus.annotation.EnumValue 注解</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;/pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Slf4j</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> StringToEnumConverterFactory</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> ConverterFactory</span><span style="color:#24292E">&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;&gt; {</span></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * The constant CONVERTER_MAP.</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> Map&lt;Class&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;, Converter&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, </span><span style="color:#D73A49">?</span><span style="color:#D73A49"> extends</span><span style="color:#24292E"> Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;&gt;&gt; CONVERTER_MAP </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#24292E"> ConcurrentHashMap&lt;&gt;();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * The constant TABLE_METHOD_OF_ENUM_TYPES.</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> Map&lt;Class&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;, </span><span style="color:#D73A49">Method</span><span style="color:#24292E">&gt; TABLE_METHOD_OF_ENUM_TYPES </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#24292E"> ConcurrentHashMap&lt;&gt;();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * Gets converter.</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> &lt;T&gt;</span><span style="color:#6A737D">        the type parameter</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> targetType</span><span style="color:#6A737D"> the target type</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the converter</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">SuppressWarnings</span><span style="color:#24292E">(</span><span style="color:#032F62">"unchecked cast"</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> &lt;</span><span style="color:#D73A49">T</span><span style="color:#D73A49"> extends</span><span style="color:#24292E"> Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;&gt; Converter&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, </span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">getConverter</span><span style="color:#24292E">(Class&lt;</span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">targetType</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#6A737D">        // 缓存转换器</span></span>
+<span class="line"><span style="color:#24292E">        Converter&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, </span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; converter </span><span style="color:#D73A49">=</span><span style="color:#24292E"> (Converter</span><span style="color:#D73A49">&lt;</span><span style="color:#24292E">String, T</span><span style="color:#D73A49">&gt;</span><span style="color:#24292E">) CONVERTER_MAP.</span><span style="color:#6F42C1">get</span><span style="color:#24292E">(targetType);</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (converter </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">            converter </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#24292E"> StringToEnumConverter&lt;&gt;(targetType);</span></span>
+<span class="line"><span style="color:#24292E">            CONVERTER_MAP.</span><span style="color:#6F42C1">put</span><span style="color:#24292E">(targetType, converter);</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> converter;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * The type String to enum converter.</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> &lt;T&gt;</span><span style="color:#6A737D"> the type parameter</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    static</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> StringToEnumConverter</span><span style="color:#24292E">&lt;</span><span style="color:#D73A49">T</span><span style="color:#D73A49"> extends</span><span style="color:#24292E"> Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;&gt; </span><span style="color:#D73A49">implements</span><span style="color:#6F42C1"> Converter</span><span style="color:#24292E">&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, </span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * The Enum map.</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#D73A49">        private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> Map&lt;</span><span style="color:#D73A49">String</span><span style="color:#24292E">, </span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; enumMap </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#24292E"> ConcurrentHashMap&lt;&gt;();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * Instantiates a new String to enum converter.</span></span>
+<span class="line"><span style="color:#6A737D">         *</span></span>
+<span class="line"><span style="color:#6A737D">         * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> enumType</span><span style="color:#6A737D"> the enum type</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#6F42C1">        StringToEnumConverter</span><span style="color:#24292E">(Class&lt;</span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">enumType</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">            Method method </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> getMethod</span><span style="color:#24292E">(enumType);</span></span>
+<span class="line"><span style="color:#D73A49">            T</span><span style="color:#24292E">[] enums </span><span style="color:#D73A49">=</span><span style="color:#24292E"> enumType.</span><span style="color:#6F42C1">getEnumConstants</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            // 将值与枚举对象对应并缓存</span></span>
+<span class="line"><span style="color:#D73A49">            for</span><span style="color:#24292E"> (T e </span><span style="color:#D73A49">:</span><span style="color:#24292E"> enums) {</span></span>
+<span class="line"><span style="color:#D73A49">                try</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">                    enumMap.</span><span style="color:#6F42C1">put</span><span style="color:#24292E">(method.</span><span style="color:#6F42C1">invoke</span><span style="color:#24292E">(e).</span><span style="color:#6F42C1">toString</span><span style="color:#24292E">(), e);</span></span>
+<span class="line"><span style="color:#24292E">                } </span><span style="color:#D73A49">catch</span><span style="color:#24292E"> (IllegalAccessException | InvocationTargetException </span><span style="color:#E36209">ex</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">                    log.</span><span style="color:#6F42C1">error</span><span style="color:#24292E">(</span><span style="color:#032F62">"获取枚举值错误!!! "</span><span style="color:#24292E">, ex);</span></span>
+<span class="line"><span style="color:#24292E">                }</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        /**</span></span>
+<span class="line"><span style="color:#6A737D">         * Convert t.</span></span>
+<span class="line"><span style="color:#6A737D">         *</span></span>
+<span class="line"><span style="color:#6A737D">         * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> source</span><span style="color:#6A737D"> the source</span></span>
+<span class="line"><span style="color:#6A737D">         * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the t</span></span>
+<span class="line"><span style="color:#6A737D">         */</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">        public</span><span style="color:#24292E"> T </span><span style="color:#6F42C1">convert</span><span style="color:#24292E">(@</span><span style="color:#D73A49">NotNull</span><span style="color:#24292E"> String </span><span style="color:#E36209">source</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#6A737D">            // 获取</span></span>
+<span class="line"><span style="color:#24292E">            T t </span><span style="color:#D73A49">=</span><span style="color:#24292E"> enumMap.</span><span style="color:#6F42C1">get</span><span style="color:#24292E">(source);</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (t </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">                throw</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> IllegalArgumentException</span><span style="color:#24292E">(</span><span style="color:#032F62">"该字符串找不到对应的枚举对象 字符串:"</span><span style="color:#D73A49"> +</span><span style="color:#24292E"> source);</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E"> t;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * Gets method.</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> &lt;T&gt;</span><span style="color:#6A737D">      the type parameter</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> enumType</span><span style="color:#6A737D"> the enum type</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the method</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> static</span><span style="color:#24292E"> &lt;</span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; Method </span><span style="color:#6F42C1">getMethod</span><span style="color:#24292E">(Class&lt;</span><span style="color:#D73A49">T</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">enumType</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        Method method;</span></span>
+<span class="line"><span style="color:#6A737D">        // 找到取值的方法</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (IEnum.class.</span><span style="color:#6F42C1">isAssignableFrom</span><span style="color:#24292E">(enumType)) {</span></span>
+<span class="line"><span style="color:#D73A49">            try</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">                method </span><span style="color:#D73A49">=</span><span style="color:#24292E"> enumType.</span><span style="color:#6F42C1">getMethod</span><span style="color:#24292E">(</span><span style="color:#032F62">"getValue"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">            } </span><span style="color:#D73A49">catch</span><span style="color:#24292E"> (NoSuchMethodException </span><span style="color:#E36209">e</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">                throw</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> IllegalArgumentException</span><span style="color:#24292E">(String.</span><span style="color:#6F42C1">format</span><span style="color:#24292E">(</span><span style="color:#032F62">"类:%s 找不到 getValue方法"</span><span style="color:#24292E">, enumType.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">()));</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#24292E">        } </span><span style="color:#D73A49">else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">            method </span><span style="color:#D73A49">=</span><span style="color:#24292E"> TABLE_METHOD_OF_ENUM_TYPES.</span><span style="color:#6F42C1">computeIfAbsent</span><span style="color:#24292E">(enumType, k </span><span style="color:#D73A49">-&gt;</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">                Field field </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> dealEnumType</span><span style="color:#24292E">(enumType)</span></span>
+<span class="line"><span style="color:#24292E">                        .</span><span style="color:#6F42C1">orElseThrow</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">                                () </span><span style="color:#D73A49">-&gt;</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> IllegalArgumentException</span><span style="color:#24292E">(String.</span><span style="color:#6F42C1">format</span><span style="color:#24292E">(</span><span style="color:#032F62">"类:%s 找不到 EnumValue注解"</span><span style="color:#24292E">, enumType.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">()))</span></span>
+<span class="line"><span style="color:#24292E">                        );</span></span>
+<span class="line"><span style="color:#D73A49">                return</span><span style="color:#24292E"> ReflectionUtils.</span><span style="color:#6F42C1">findMethod</span><span style="color:#24292E">(enumType, </span><span style="color:#032F62">"get"</span><span style="color:#D73A49"> +</span><span style="color:#24292E"> StringUtils.</span><span style="color:#6F42C1">capitalize</span><span style="color:#24292E">(field.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">()));</span></span>
+<span class="line"><span style="color:#24292E">            });</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> method;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * Deal enum type optional.</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> clazz</span><span style="color:#6A737D"> the clazz</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the optional</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> static</span><span style="color:#24292E"> Optional&lt;</span><span style="color:#D73A49">Field</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">dealEnumType</span><span style="color:#24292E">(Class&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">clazz</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> clazz.</span><span style="color:#6F42C1">isEnum</span><span style="color:#24292E">() </span><span style="color:#D73A49">?</span></span>
+<span class="line"><span style="color:#24292E">                Arrays.</span><span style="color:#6F42C1">stream</span><span style="color:#24292E">(clazz.</span><span style="color:#6F42C1">getDeclaredFields</span><span style="color:#24292E">()).</span><span style="color:#6F42C1">filter</span><span style="color:#24292E">(field </span><span style="color:#D73A49">-&gt;</span><span style="color:#24292E"> field.</span><span style="color:#6F42C1">isAnnotationPresent</span><span style="color:#24292E">(EnumValue.class)).</span><span style="color:#6F42C1">findFirst</span><span style="color:#24292E">() </span><span style="color:#D73A49">:</span><span style="color:#24292E"> Optional.</span><span style="color:#6F42C1">empty</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p><a id="A8Pqa"></a></p>
+<h5 id="section-6">使自定义的转换器工厂生效</h5>
+<p>需要实现<strong>WebMvcConfigurer</strong>接口并在<em>addFormatters</em>方法中进行追加。</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.web.config;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.context.annotation.Configuration;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.format.FormatterRegistry;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.web.servlet.config.annotation.WebMvcConfigurer;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * MVC配置</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *     有两种方式配置，推荐使用 "实现 WebMvcConfigurer 接口 " 实现, 参考： https://blog.csdn.net/cp026la/article/details/86518655</span></span>
+<span class="line"><span style="color:#6A737D"> *     &lt;code&gt;@SpringBootConfiguration&lt;/code&gt;继承自 &lt;code&gt;@Configuration&lt;/code&gt;，二者功能也一致，标注当前类是配置类，</span></span>
+<span class="line"><span style="color:#6A737D"> *     并会将当前类内声明的一个或多个以@Bean注解标记的方法的实例纳入到spring容器中，并且实例名就是方法名。</span></span>
+<span class="line"><span style="color:#6A737D"> *     &lt;code&gt;@EnableWebMvc&lt;/code&gt; 启用此注解，SpringBoot 关于 MVC 的自动装载会失效，交由开发者自定义</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;/pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Configuration</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> MvcConfig</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> WebMvcConfigurer</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * Add formatters.</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> registry</span><span style="color:#6A737D"> the registry</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> addFormatters</span><span style="color:#24292E">(FormatterRegistry </span><span style="color:#E36209">registry</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#6A737D">        // 前端传 String 类型，后端自动转为枚举，需要转换的枚举实现 com.baomidou.mybatisplus.annotation.IEnum 接口 或者 在需要转换的属性上加 @com.baomidou.mybatisplus.annotation.EnumValue 注解</span></span>
+<span class="line"><span style="color:#24292E">        registry.</span><span style="color:#6F42C1">addConverterFactory</span><span style="color:#24292E">(</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> StringToEnumConverterFactory</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p>这样就可以了，接下来处理 json 请求。</p>
+<p><a id="lu8Lg"></a></p>
+<h5 id="section-7">看下效果</h5>
+<p>GET请求：</p>
+<p><img src="/article-library-site/media/8900a4912e000a0a70.webp" alt="如何在springboot中优雅的使用枚举配图 1" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/a51684b0066ac7f3b6.webp" alt="如何在springboot中优雅的使用枚举配图 2" loading="lazy" decoding="async" /></p>
+<p>普通POST请求：</p>
+<p><img src="/article-library-site/media/164212759c451cb4f2.webp" alt="如何在springboot中优雅的使用枚举配图 3" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/adfddb34dacd8d27e6.webp" alt="如何在springboot中优雅的使用枚举配图 4" loading="lazy" decoding="async" /></p>
+<p><a id="HnOBF"></a></p>
+<h4 id="section-8">POST json 请求</h4>
+<p>json请求使用<strong>RequestBody</strong>注解标记接收，处理器为项目中指定的消息转换器。在Springboot中默认为Jackson。</p>
+<p>Jackson对枚举的默认行为为按枚举名或其所在的位置（从0开始计算），例如当传入0时获取的是枚举类中的第一个对象。</p>
+<p>通用的解决方案，需要实现<strong>ContextualDeserializer</strong>辅助获取转换时的类信息（<em>createContextual</em>每个枚举类只会触发一次，之后都使用该方法返回的反序列化器处理）。</p>
+<p>注意： 其中 StringToEnumConverterFactory.<em>getMethod</em><em><strong>(<em><strong><strong>clazz</strong></strong></em>)</strong></em> 调用的是上面那个类中的方法</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.web.config;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.fasterxml.jackson.core.JsonParser;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.fasterxml.jackson.databind.BeanProperty;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.fasterxml.jackson.databind.DeserializationContext;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.fasterxml.jackson.databind.JsonDeserializer;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.fasterxml.jackson.databind.deser.ContextualDeserializer;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.Setter;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> lombok.extern.slf4j.Slf4j;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.io.IOException;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.lang.reflect.InvocationTargetException;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.lang.reflect.Method;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> java.util.Objects;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * jackson 枚举类型反序列化，从前端接收枚举值反序列化为枚举对象，适用 POST json 请求，不适用 Get请求，Post表单请求的普通请求</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *     IEnum 是 MybatisPlus 中的自定义枚举接口，也可以自己写一个</span></span>
+<span class="line"><span style="color:#6A737D"> *     需要转换的枚举实现 com.baomidou.mybatisplus.annotation.IEnum 接口 或者 在需要转换的属性上加 @com.baomidou.mybatisplus.annotation.EnumValue 注解</span></span>
+<span class="line"><span style="color:#6A737D"> * &lt;/pre&gt;</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Slf4j</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Setter</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> JacksonEnumDeserializer</span><span style="color:#D73A49"> extends</span><span style="color:#6F42C1"> JsonDeserializer</span><span style="color:#24292E">&lt;Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;&gt; </span><span style="color:#D73A49">implements</span><span style="color:#6F42C1"> ContextualDeserializer</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * The Clazz.</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Class&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt; clazz;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * Deserialize enum.</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> jsonParser</span><span style="color:#6A737D"> the json parser</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> ctx</span><span style="color:#6A737D">        the ctx</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the enum</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@throws</span><span style="color:#6F42C1"> IOException</span><span style="color:#6A737D">             the io exception</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">deserialize</span><span style="color:#24292E">(JsonParser </span><span style="color:#E36209">jsonParser</span><span style="color:#24292E">, DeserializationContext </span><span style="color:#E36209">ctx</span><span style="color:#24292E">) </span><span style="color:#D73A49">throws</span><span style="color:#24292E"> IOException {</span></span>
+<span class="line"><span style="color:#24292E">        Class&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt; enumType </span><span style="color:#D73A49">=</span><span style="color:#24292E"> clazz;</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (Objects.</span><span style="color:#6F42C1">isNull</span><span style="color:#24292E">(enumType) </span><span style="color:#D73A49">||</span><span style="color:#D73A49"> !</span><span style="color:#24292E">enumType.</span><span style="color:#6F42C1">isEnum</span><span style="color:#24292E">()) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">        String text </span><span style="color:#D73A49">=</span><span style="color:#24292E"> jsonParser.</span><span style="color:#6F42C1">getText</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">        Method method </span><span style="color:#D73A49">=</span><span style="color:#24292E"> StringToEnumConverterFactory.</span><span style="color:#6F42C1">getMethod</span><span style="color:#24292E">(clazz);</span></span>
+<span class="line"><span style="color:#24292E">        Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;[] enumConstants </span><span style="color:#D73A49">=</span><span style="color:#24292E"> (Enum</span><span style="color:#D73A49">&lt;?&gt;</span><span style="color:#24292E">[]) enumType.</span><span style="color:#6F42C1">getEnumConstants</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">        // 将值与枚举对象对应并缓存</span></span>
+<span class="line"><span style="color:#D73A49">        for</span><span style="color:#24292E"> (Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt; e </span><span style="color:#D73A49">:</span><span style="color:#24292E"> enumConstants) {</span></span>
+<span class="line"><span style="color:#D73A49">            try</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">                if</span><span style="color:#24292E"> (Objects.</span><span style="color:#6F42C1">equals</span><span style="color:#24292E">(method.</span><span style="color:#6F42C1">invoke</span><span style="color:#24292E">(e).</span><span style="color:#6F42C1">toString</span><span style="color:#24292E">(), text)) {</span></span>
+<span class="line"><span style="color:#D73A49">                    return</span><span style="color:#24292E"> e;</span></span>
+<span class="line"><span style="color:#24292E">                }</span></span>
+<span class="line"><span style="color:#24292E">            } </span><span style="color:#D73A49">catch</span><span style="color:#24292E"> (IllegalAccessException | InvocationTargetException </span><span style="color:#E36209">ex</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">                log.</span><span style="color:#6F42C1">error</span><span style="color:#24292E">(</span><span style="color:#032F62">"获取枚举值错误!!! "</span><span style="color:#24292E">, ex);</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 为不同的枚举获取合适的解析器</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> ctx</span><span style="color:#6A737D">      ctx</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> property</span><span style="color:#6A737D"> property</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the json deserializer</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Override</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> JsonDeserializer&lt;Enum&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt;&gt; </span><span style="color:#6F42C1">createContextual</span><span style="color:#24292E">(DeserializationContext </span><span style="color:#E36209">ctx</span><span style="color:#24292E">, BeanProperty </span><span style="color:#E36209">property</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">        Class&lt;</span><span style="color:#D73A49">?</span><span style="color:#24292E">&gt; rawCls </span><span style="color:#D73A49">=</span><span style="color:#24292E"> ctx.</span><span style="color:#6F42C1">getContextualType</span><span style="color:#24292E">().</span><span style="color:#6F42C1">getRawClass</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">        JacksonEnumDeserializer converter </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> JacksonEnumDeserializer</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">        converter.</span><span style="color:#6F42C1">setClazz</span><span style="color:#24292E">(rawCls);</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> converter;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p><a id="ph5F4"></a></p>
+<h5 id="section-9">局部配置</h5>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 性别</span></span>
+<span class="line"><span style="color:#6A737D">     * &lt;br/&gt;</span></span>
+<span class="line"><span style="color:#6A737D">     * {@link @JsonDeserialize}枚举类型反序列化局部配置，从前端接收枚举值反序列化为枚举对象,前端传 value 值</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">JsonDeserialize</span><span style="color:#24292E">(</span><span style="color:#005CC5">using</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> JacksonEnumDeserializer.class)</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> GenderEnum gender;</span></span>
+<span class="line"></span></code></pre></div>
+<p><a id="iZDFR"></a></p>
+<h5 id="section-10">全局配置</h5>
+<p>全局配置了的话，就不用在枚举属性上面写 @JsonDeserialize***(<em><strong>using = JacksonEnumDeserializer.<strong>class</strong></strong></em>)*** 注解了。</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">package</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.web;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.fasterxml.jackson.databind.module.SimpleModule;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.leigq.basaltools.util.JacksonUtils;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> com.leigq.www.mybatisplusstudy.web.config.JacksonEnumDeserializer;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.context.annotation.Bean;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> org.springframework.context.annotation.Configuration;</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * ObjectMapper配置，在使用 ObjectMapper 的地方，方便直接注入 ObjectMapper 进行使用，</span></span>
+<span class="line"><span style="color:#6A737D"> * 但是推荐统一使用 {@link JacksonUtils} 工具类</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D"> * @date 2020 -07-22 21:03:08</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Configuration</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> JacksonConfig</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * jackson 2 ObjectMapper 构建定制器</span></span>
+<span class="line"><span style="color:#6A737D">     * &lt;br/&gt;</span></span>
+<span class="line"><span style="color:#6A737D">     * 该段代码并未覆盖SpringBoot自动装配的ObjectMapper对象，而是加强其配置.</span></span>
+<span class="line"><span style="color:#6A737D">     * 详情请参考: &lt;a href='https://www.jianshu.com/p/68fce8b23341'&gt;SpringBoot2.x下的ObjectMapper配置原理&lt;/a&gt;</span></span>
+<span class="line"><span style="color:#6A737D">     *</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@return</span><span style="color:#6A737D"> the jackson 2 object mapper builder customizer</span></span>
+<span class="line"><span style="color:#6A737D">     * </span><span style="color:#D73A49">@author</span><span style="color:#6A737D"> leiguoqing</span></span>
+<span class="line"><span style="color:#6A737D">     * @date 2020 -07-22 21:23:18</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Bean</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> Jackson2ObjectMapperBuilderCustomizer </span><span style="color:#6F42C1">customJackson</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> jacksonObjectMapperBuilder </span><span style="color:#D73A49">-&gt;</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">            // 枚举反序列化全局处理，局部配置使用 @JsonDeserialize(using = JacksonEnumDeserializer.class)，详见 com.leigq.www.mybatisplusstudy.param.AddStaffsParam</span></span>
+<span class="line"><span style="color:#6A737D">            // 序列化的话不做全局处理，在枚举对象上面使用 @JsonFormat(shape = JsonFormat.Shape.OBJECT) 注解即可</span></span>
+<span class="line"><span style="color:#24292E">            SimpleModule simpleModule </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> SimpleModule</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">            simpleModule.</span><span style="color:#6F42C1">addDeserializer</span><span style="color:#24292E">(Enum.class, </span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> JacksonEnumDeserializer</span><span style="color:#24292E">());</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">            /* 注册模块 */</span></span>
+<span class="line"><span style="color:#24292E">            jacksonObjectMapperBuilder.</span><span style="color:#6F42C1">modules</span><span style="color:#24292E">(simpleModule);</span></span>
+<span class="line"><span style="color:#24292E">        };</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p><a id="GXNYD"></a></p>
+<h5 id="section-11">看下效果</h5>
+<p><img src="/article-library-site/media/2f41782e9952ec905c.webp" alt="如何在springboot中优雅的使用枚举配图 5" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/26421d387ca142ea0e.webp" alt="如何在springboot中优雅的使用枚举配图 6" loading="lazy" decoding="async" /></p>
+<p><a id="kvXsn"></a></p>
+<h2 id="section-12">数据库交互，入库与出库</h2>
+<p>借助MyBatis-Plus可以很容易的实现这一点。</p>
+<p>首先需要在配置文件中加入type-enums-package指定枚举的扫描包，MyBatis-Plus将为包内(包含子包)所有枚举进行适配，可以使用逗号或封号分隔多个包名。</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">mybatis</span><span style="color:#D73A49">-</span><span style="color:#24292E">plus</span><span style="color:#D73A49">:</span></span>
+<span class="line"><span style="color:#24292E">  type</span><span style="color:#D73A49">-</span><span style="color:#24292E">enums</span><span style="color:#D73A49">-package</span><span style="color:#24292E">: [枚举包][,|;][枚举包]</span></span></code></pre></div>
+<p>接着在枚举类中指定数据库值所对应的属性。这里可以采用两种方式。</p>
+<p><a id="zrV0B"></a></p>
+<h3 id="section-13">方式一：</h3>
+<ul>
+<li>实现官方提供的<em>IEnum</em>接口，接口中的getValue方法与数据库值对应的属性。</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Getter</span><span style="color:#6A737D">//实现getValue</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> enum</span><span style="color:#6F42C1"> StatusEnum</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> IEnum</span><span style="color:#24292E">&lt;</span><span style="color:#D73A49">Integer</span><span style="color:#24292E">&gt; {</span></span>
+<span class="line"><span style="color:#005CC5">    VALID</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">, </span><span style="color:#032F62">"有效"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#005CC5">    INVALID</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">, </span><span style="color:#032F62">"无效"</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">    StatusEnum</span><span style="color:#24292E">(Integer </span><span style="color:#E36209">value</span><span style="color:#24292E">, String </span><span style="color:#E36209">desc</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.value </span><span style="color:#D73A49">=</span><span style="color:#24292E"> value;</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.desc </span><span style="color:#D73A49">=</span><span style="color:#24292E"> desc;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#6A737D">    //标记数据库存的值是value</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> Integer value;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> String desc;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"></span></code></pre></div>
+<p><a id="QjwCM"></a></p>
+<h3 id="section-14">方式二：</h3>
+<ul>
+<li>将属性使用<strong>EnumValue</strong>注解标记数据库值对应的属性。</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Getter</span><span style="color:#6A737D">//实现getValue</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> enum</span><span style="color:#6F42C1"> StatusEnum</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#005CC5">    VALID</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">, </span><span style="color:#032F62">"有效"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#005CC5">    INVALID</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">, </span><span style="color:#032F62">"无效"</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">    StatusEnum</span><span style="color:#24292E">(Integer </span><span style="color:#E36209">value</span><span style="color:#24292E">, String </span><span style="color:#E36209">desc</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.value </span><span style="color:#D73A49">=</span><span style="color:#24292E"> value;</span></span>
+<span class="line"><span style="color:#005CC5">        this</span><span style="color:#24292E">.desc </span><span style="color:#D73A49">=</span><span style="color:#24292E"> desc;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#6A737D">    //标记数据库存的值是value</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">EnumValue</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> Integer value;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#D73A49"> final</span><span style="color:#24292E"> String desc;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"></span></code></pre></div>
+<p>在类的属性声明上直接将字段类型标记为枚举类型，读取时将自动转换数据库值为枚举对象。</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Accessors</span><span style="color:#24292E">(</span><span style="color:#005CC5">chain</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> true</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">TableName</span><span style="color:#24292E">(</span><span style="color:#032F62">"test"</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> TestDO</span><span style="color:#24292E"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Integer id;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String username;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> StatusEnum status;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"></span></code></pre></div>
+<p>参考：</p>
+<ul>
+<li><a href="https://www.cnblogs.com/caizhiqin/p/10000649.html">SpringMVC处理参数中的枚举类型通用实现</a></li>
+<li><a href="https://blog.csdn.net/qq_33306246/article/details/106933613?utm_medium=distribute.wap_relevant.none-task-blog-2~default~baidujs_title~default-8.wap_blog_relevant_pic">如何在springboot优雅的使用枚举</a></li>
+<li><a href="https://baomidou.com/guide/enum.html#jackson">MybatisPlus通用枚举</a></li>
+</ul>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/mybatis-plus-auto-fill/"><span>同分类 · 上一篇</span><strong>MyBatis-Plus 自动填充字段</strong></a><a href="/article-library-site/tech/java-practical-tips/" class="next-article"><span>同分类 · 下一篇</span><strong>Java 代码实践：35 条建议的重新整理</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

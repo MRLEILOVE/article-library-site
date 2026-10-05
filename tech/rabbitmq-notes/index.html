@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="记录 RabbitMQ 重试、延迟队列和集群相关配置与学习资料。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="RabbitMQ 重试与集群笔记"><meta property="og:description" content="记录 RabbitMQ 重试、延迟队列和集群相关配置与学习资料。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>RabbitMQ 重试与集群笔记 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>中间件与数据</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">20 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:1">RabbitMQ消息重试机制</a><a href="#section-2" style="--indent:1">自己处理重试计数问题</a><a href="#section-3" style="--indent:1">给RabbitMQ发送消息时，设置请求头Header。</a><a href="#section-4" style="--indent:1">RabbitMQ的并发参数（concurrency和prefetch）</a><a href="#section-5" style="--indent:1">消费端限流策略（basicQos）</a><a href="#section-6" style="--indent:0">设置限流机制</a><a href="#section-7" style="--indent:2">小结</a><a href="#section-8" style="--indent:2">channel.basicQos()</a><a href="#section-9" style="--indent:1">RabbitMQ 与 SpringBoot2.X 整合</a><a href="#section-10" style="--indent:1">RabbitMQ负载均衡</a><a href="#section-11" style="--indent:1">RabbitMQ集群模式有哪些?</a><a href="#section-12" style="--indent:2">普通模式：消息实体在其中一个节点上，消费时同步</a><a href="#section-13" style="--indent:2">镜像模式：消息实体会同步到所有节点上</a><a href="#section-14" style="--indent:1">RabbitMQ镜像队列模式集群搭建</a><a href="#section-15" style="--indent:2">RabbitMQ 配置 Nginx 负载均衡</a><a href="#section-16" style="--indent:2">RabbitMQ 配置 HAProxy 负载均衡</a><a href="#section-17" style="--indent:1">RabbitMQ 常用命令</a><a href="#section-18" style="--indent:1">RabbitMQ修改默认端口配置</a><a href="#section-19" style="--indent:1">x-delayed-message的安装</a><a href="#section-20" style="--indent:1">SpringBoot整合rabbitMQ 启动服务后便自动创建交换机，队列，绑定关系</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 中间件与数据</p><h1 id="article-title">RabbitMQ 重试与集群笔记</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 9 分钟</span></div><p class="tech-dates">原笔记 2022-08-08<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>记录 RabbitMQ 重试、延迟队列和集群相关配置与学习资料。</p>
+<blockquote>
+<p>阅读说明：下面的 XML、插件及集群示例沿用原笔记版本。示例口令与地址已替换，实际部署请核对 RabbitMQ、Spring AMQP 与插件版本。</p>
+</blockquote>
+<p><a id="c8A3a"></a></p>
+<h3 id="section-1">RabbitMQ消息重试机制</h3>
+<p><a href="https://blog.csdn.net/LiZhen314/article/details/121777217">RabbitMQ重试机制_LiZhen798的博客-CSDN博客_rabbitmq生产者重试</a></p>
+<p>除了使用客户端重试，还可以使用延迟队列实现<strong>延迟重试</strong>，架构如下：</p>
+<p><img src="/article-library-site/media/16301779688b0fd07b.webp" alt="RabbitMQ相关配图 1" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/1ce0c510c102b71a0d.webp" alt="RabbitMQ相关配图 2" loading="lazy" decoding="async" /></p>
+<p>延迟重试也有两种方式：</p>
+<ol>
+<li>基于死信队列：上图1就是基于死信队列实现架构图，有一个缺点：可能会导致消息消费不及时，就是重试的消息会重新投递到实际消费队列的最后面，此时，可能在重试的等待期间，中间队列中又新增很多消息，导致重试不及时。</li>
+<li>基于延时插件：上图2就是基于延时插件实现架构图，<strong>这种实现方式，可用于业务的过期时间是不一样的，因为只有等到到期时间到了到会将消息投到队列，所以，不存在后面过期时间短的消息被阻塞，推荐使用这种</strong></li>
+</ol>
+<p><a id="quOAh"></a></p>
+<h3 id="section-2">自己处理重试计数问题</h3>
+<p>消费者端处理这消息失败，但是确认这条消息，然后把这条消息发布到nanit.users.retry1交换机。由于我们没有reject这条消息，RabbitMQ并不会帮我们保存x-death header，因此我们需要自己处理重试计数问题。这个可以很容易做到，只需要给消息增加一个自定义的header，比如说x-retries。还有，我们需要自己处理TTL：因为等待队列层面没有设置TTL，我们在发布消息的时候，需要设置一个消息级别的TTL。我们可以新增一个expiration的header，其值就是base-retry-delay和当前重试次数的乘积。这种方式，重试的延迟会随着重试次数增加而增加。最后提一下：我们发布消息的时候，消息的routing key要设成队列的名字。当前这个例子就是，mailman.users.created。</p>
+<p>原文: <a href="https://www.liangzl.com/get-article-detail-236543.html">https://www.liangzl.com/get-article-detail-236543.html</a></p>
+<p><a id="pHLll"></a></p>
+<h3 id="section-3">给RabbitMQ发送消息时，设置请求头Header。</h3>
+<p><a href="https://www.shuzhiduo.com/A/pRdBY2K25n/">https://www.shuzhiduo.com/A/pRdBY2K25n/</a></p>
+<p><a id="D31QJ"></a></p>
+<h3 id="section-4">RabbitMQ的并发参数（concurrency和prefetch）</h3>
+<p><a href="https://blog.csdn.net/zty1317313805/article/details/121931692">https://blog.csdn.net/zty1317313805/article/details/121931692</a></p>
+<p><a id="oIQwU"></a></p>
+<h3 id="section-5">消费端限流策略（basicQos）</h3>
+<p>原文链接：<a href="https://blog.csdn.net/fan521dan/article/details/104832175">https://blog.csdn.net/fan521dan/article/details/104832175</a></p>
+<h2 id="section-6">设置限流机制</h2>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> *  设置限流机制</span></span>
+<span class="line"><span style="color:#6A737D"> *  param1: prefetchSize，消息本身的大小 如果设置为0  那么表示对消息本身的大小不限制</span></span>
+<span class="line"><span style="color:#6A737D"> *  param2: prefetchCount，告诉rabbitmq不要一次性给消费者推送大于N个消息</span></span>
+<span class="line"><span style="color:#6A737D"> *  param3：global，是否将上面的设置应用于整个通道，false表示只应用于当前消费者</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#24292E">channel.</span><span style="color:#6F42C1">basicQos</span><span style="color:#24292E">(</span><span style="color:#005CC5">0</span><span style="color:#24292E">, </span><span style="color:#005CC5">5</span><span style="color:#24292E">, </span><span style="color:#005CC5">false</span><span style="color:#24292E">);</span></span></code></pre></div>
+<p><a id="A4VaC"></a></p>
+<h4 id="section-7">小结</h4>
+<ol>
+<li>限流的核心代码就是channel.basicQos();</li>
+<li>限流情况 ack 不能设置自动签收，一定要手动签收</li>
+</ol>
+<p><a id="Mw1uP"></a></p>
+<h4 id="section-8">channel.basicQos()</h4>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">/**</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> prefetchSize</span><span style="color:#6A737D"> maximum amount of content (measured in</span></span>
+<span class="line"><span style="color:#6A737D"> * octets) that the server will deliver, 0 if unlimited</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> prefetchCount</span><span style="color:#6A737D"> maximum number of messages that the server</span></span>
+<span class="line"><span style="color:#6A737D"> * will deliver, 0 if unlimited</span></span>
+<span class="line"><span style="color:#6A737D"> * </span><span style="color:#D73A49">@param</span><span style="color:#E36209"> global</span><span style="color:#6A737D"> true if the settings should be applied to the</span></span>
+<span class="line"><span style="color:#6A737D"> * entire channel rather than each consumer</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">void</span><span style="color:#6F42C1"> basicQos</span><span style="color:#24292E">(</span><span style="color:#D73A49">int</span><span style="color:#24292E"> prefetchSize, </span><span style="color:#D73A49">int</span><span style="color:#24292E"> prefetchCount, </span><span style="color:#D73A49">boolean</span><span style="color:#24292E"> global) throws IOException;</span></span>
+<span class="line"></span></code></pre></div>
+<p>该方法的作用是：进行消费端的限流</p>
+<p>param1：prefetchSize，消息本身的大小 如果设置为0 那么表示对消息本身的大小不限制</p>
+<p>param2：prefetchCount，告诉rabbitmq不要一次性给消费者推送大于N个消息</p>
+<p>param3：global，是否将上面的设置应用于整个通道</p>
+<p>false：表示只应用于当前消费者</p>
+<p>true：表示当前通道的所有消费者都应用这个限流策略</p>
+<p><a id="Z88aD"></a></p>
+<h3 id="section-9">RabbitMQ 与 SpringBoot2.X 整合</h3>
+<p><a href="https://juejin.cn/post/6844903778395635726">https://juejin.cn/post/6844903778395635726</a></p>
+<p><a id="Hu3Rh"></a></p>
+<h3 id="section-10"><a href="https://blog.csdn.net/cd_yourheart/article/details/108487697">RabbitMQ负载均衡</a></h3>
+<p><a href="https://blog.csdn.net/cd_yourheart/article/details/108487697">https://blog.csdn.net/cd_yourheart/article/details/108487697</a></p>
+<p><a id="Db2Vn"></a></p>
+<h3 id="section-11"><a href="https://www.cnblogs.com/gaopengpy/p/13476371.html">RabbitMQ集群模式有哪些?</a></h3>
+<p><strong>RabbitMQ的集群模式有两种：</strong></p>
+<p><a id="kGMRb"></a></p>
+<h4 id="section-12">普通模式：消息实体在其中一个节点上，消费时同步</h4>
+<p>默认模式，以两个节点（rabbit01、rabbit02）为例来进行说明。</p>
+<p>对于Queue来说，消息实体只存在于其中一个节点rabbit01（或者rabbit02），rabbit01和rabbit02两个节点仅有相同的元数据，即队列的结构。</p>
+<p>当消息进入rabbit01节点的Queue后，consumer从rabbit02节点消费时，RabbitMQ会临时在rabbit01、rabbit02间进行消息传输，把A中的消息实体取出并经过B发送给consumer。</p>
+<p>所以consumer应尽量连接每一个节点，从中取消息。即对于同一个逻辑队列，要在多个节点建立物理Queue。否则无论consumer连rabbit01或rabbit02，出口总在rabbit01，会产生瓶颈。</p>
+<p>当rabbit01节点故障后，rabbit02节点无法取到rabbit01节点中还未消费的消息实体。如果做了消息持久化，那么得等rabbit01节点恢复，然后才可被消费；如果没有持久化的话，就会产生消息丢失的现象。</p>
+<p><a id="vjfAN"></a></p>
+<h4 id="section-13">镜像模式：消息实体会同步到所有节点上</h4>
+<p>把需要的队列做成镜像队列，存在与多个节点属于RabbitMQ的HA方案。</p>
+<p>该模式解决了普通模式中的问题，其实质和普通模式不同之处在于，消息实体会主动在镜像节点间同步，而不是在客户端取数据时临时拉取。</p>
+<p>该模式带来的副作用也很明显，除了降低系统性能外，如果镜像队列数量过多，加之大量的消息进入，集群内部的网络带宽将会被这种同步通讯大大消耗掉。</p>
+<p>所以在对可靠性要求较高的场合中适用。</p>
+<p><a id="NA7Qy"></a></p>
+<h3 id="section-14"><a href="https://www.cnblogs.com/GYY2046/articles/15770382.html">RabbitMQ镜像队列模式集群搭建</a></h3>
+<p>SpringBoot启动时实际只会连接集群中的第一个MQ节点，所以需要使用外部工具来实现负载均衡，可看RabbitProperties.java中源码</p>
+<p><a id="M6IyB"></a></p>
+<h4 id="section-15">RabbitMQ 配置 Nginx 负载均衡</h4>
+<div class="code-example"><div class="code-toolbar"><span>nginx</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">// 编译时 加上 </span><span style="color:#D73A49">tcp</span><span style="color:#24292E"> 模块</span></span>
+<span class="line"><span style="color:#24292E">// 修改 nginx.</span><span style="color:#D73A49">conf</span><span style="color:#24292E"> 文件，加入</span></span>
+<span class="line"><span style="color:#D73A49">stream</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">  upstream</span><span style="color:#6F42C1"> rabbitmq </span><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#D73A49">    server</span><span style="color:#24292E"> 192.0.2.2:5672;</span></span>
+<span class="line"><span style="color:#D73A49">    server</span><span style="color:#24292E"> 192.0.2.3:5672;</span></span>
+<span class="line"><span style="color:#24292E">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  server</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    listen </span><span style="color:#005CC5">5673</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">    proxy_connect_timeout </span><span style="color:#005CC5">3s</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">    proxy_timeout </span><span style="color:#005CC5">10s</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">    proxy_pass </span><span style="color:#24292E">rabbitmq;</span></span>
+<span class="line"><span style="color:#24292E">  }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">建议将</span><span style="color:#D73A49"> proxy_timeout </span><span style="color:#24292E">的时间设置长一点 以免 tcp 连接中断重连</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">spring-data 应用 nginx 负载</span></span>
+<span class="line"><span style="color:#24292E">&lt;rabbit:connection-factory id=</span><span style="color:#032F62">"rabbitConnectionFactory"</span><span style="color:#24292E"> addresses=</span><span style="color:#032F62">"192.0.2.2:5673"</span><span style="color:#24292E"> username=</span><span style="color:#032F62">"admin"</span><span style="color:#24292E"> password=</span><span style="color:#032F62">"CHANGE_ME"</span></span>
+<span class="line"><span style="color:#24292E">publisher-confirms=</span><span style="color:#032F62">"true"</span><span style="color:#24292E">/&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">addreses 或者 host + port 属性配上 nginx 的 ip 和监听端口</span></span></code></pre></div>
+<p><a id="sabJX"></a></p>
+<h4 id="section-16">RabbitMQ 配置 HAProxy 负载均衡</h4>
+<p><a href="https://www.cnblogs.com/GYY2046/articles/15770394.html">https://www.cnblogs.com/GYY2046/articles/15770394.html</a></p>
+<p><img src="/article-library-site/media/d8c271d539f37b6667.webp" alt="RabbitMQ相关配图 3" loading="lazy" decoding="async" /></p>
+<p><img src="/article-library-site/media/7c8ac67ecf818515f1.webp" alt="RabbitMQ相关配图 4" loading="lazy" decoding="async" /></p>
+<p><a id="QdULv"></a></p>
+<h3 id="section-17">RabbitMQ 常用命令</h3>
+<p>参考：<a href="https://www.cnblogs.com/ericli-ericli/p/5902270.html">windows下 安装 rabbitMQ 及操作常用命令 - Eric-Lee - 博客园</a></p>
+<p><a id="fgBZ0"></a></p>
+<h3 id="section-18">RabbitMQ修改默认端口配置</h3>
+<p>参考：<a href="https://blog.csdn.net/bxj19890514/article/details/109593435">RabbitMQ修改默认端口配置（常用）_毕邺的博客-CSDN博客_rabbitmq默认端口号</a></p>
+<p><a id="KxFHl"></a></p>
+<h3 id="section-19">x-delayed-message的安装</h3>
+<ol>
+<li>下载插件：<a href="https://github.com/rabbitmq/rabbitmq-delayed-message-exchange">https://github.com/rabbitmq/rabbitmq-delayed-message-exchange</a> ，下载 rabbitmq_delayed_message_exchange-3.8.0.ez。</li>
+<li>将下载的包放到 /RABBIT_HOME/plugins下。</li>
+<li>执行命令 <strong>rabbitmq-plugins enable rabbitmq_delayed_message_exchange</strong> 去启用</li>
+<li>重启rabbitmq。</li>
+</ol>
+<p><a id="yq8b9"></a></p>
+<h3 id="section-20">SpringBoot整合rabbitMQ 启动服务后便自动创建交换机，队列，绑定关系</h3>
+<p>参考：<a href="https://blog.csdn.net/qq_41712271/article/details/115675092">https://blog.csdn.net/qq_41712271/article/details/115675092</a></p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/redis-list-commands/"><span>同分类 · 上一篇</span><strong>Redis List 命令资料</strong></a><a href="/article-library-site/tech/mysql-online-ddl/" class="next-article"><span>同分类 · 下一篇</span><strong>MySQL 大表在线 DDL 笔记</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

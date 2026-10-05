@@ -1,0 +1,237 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="整理 Sharding-JDBC 的分片策略、读写分离与旧版配置示例。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="ShardingSphere 分片与配置笔记"><meta property="og:description" content="整理 Sharding-JDBC 的分片策略、读写分离与旧版配置示例。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>ShardingSphere 分片与配置笔记 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>中间件与数据</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">8 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">官网</a><a href="#section-2" style="--indent:0">Sharding-JDBC基本概念</a><a href="#section-3" style="--indent:0">sharding-jdbc 4种分片策略</a><a href="#section-4" style="--indent:0">Sharding sphere实现读写分离+分库分表</a><a href="#section-5" style="--indent:0">Shardingsphere与dynamic-datasource配合实现多数据源切换</a><a href="#section-6" style="--indent:0">参考配置</a><a href="#section-7" style="--indent:0">其它文章</a><a href="#section-8" style="--indent:1">不停机数据迁移</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 中间件与数据</p><h1 id="article-title">ShardingSphere 分片与配置笔记</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 33 分钟</span></div><p class="tech-dates">原笔记 2022-10-19<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>整理 Sharding-JDBC 的分片策略、读写分离与旧版配置示例。</p>
+<div class="code-example"><div class="code-toolbar"><span>properties</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">版本说明：本文的 spring.shardingsphere.sharding 配置属于旧版 Sharding-JDBC 风格，不适合作为新版配置直接粘贴。数据库地址、账号与口令已改成示例值，自定义算法类需要项目自行实现。</span></span></code></pre></div>
+<p><a id="tVWuL"></a></p>
+<h2 id="section-1">官网</h2>
+<p><a href="https://shardingsphere.apache.org/document/current/cn/overview/">https://shardingsphere.apache.org/document/current/cn/overview/</a></p>
+<p><a id="xEo9k"></a></p>
+<h2 id="section-2">Sharding-JDBC基本概念</h2>
+<p><a href="https://zhuanlan.zhihu.com/p/267513756">https://zhuanlan.zhihu.com/p/267513756</a></p>
+<p><a id="pvcbv"></a></p>
+<h2 id="section-3">sharding-jdbc 4种分片策略</h2>
+<p>1、标准分片策略</p>
+<p>- 精准分片算法</p>
+<p>- 范围分片算法</p>
+<p>2、复合分片策略</p>
+<p>3、行表达式分片策略</p>
+<p>4、Hint分片策略</p>
+<p>详见：<a href="https://blog.csdn.net/qq_41549632/article/details/119280238">sharding-jdbc 分库分表的 4种分片策略</a></p>
+<p><a id="tamcd"></a></p>
+<h2 id="section-4">Sharding sphere实现读写分离+分库分表</h2>
+<p><a href="https://www.jianshu.com/p/f5e68c8d7852">https://www.jianshu.com/p/f5e68c8d7852</a></p>
+<p><a id="U5BQZ"></a></p>
+<h2 id="section-5">Shardingsphere与dynamic-datasource配合实现多数据源切换</h2>
+<p><a href="http://events.jianshu.io/p/0bf72d112522">http://events.jianshu.io/p/0bf72d112522</a></p>
+<p><a id="oWMYB"></a></p>
+<h2 id="section-6">参考配置</h2>
+<blockquote>
+<p>原笔记中的 YAML 缩进已丢失，不能直接执行；请以同节 properties 示例和对应版本文档为准。</p>
+</blockquote>
+<div class="code-example"><div class="code-toolbar"><span>text</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span># 所有数据源</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.names=ds-0,ds-1</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 数据源 ds-0</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-0.type=com.alibaba.druid.pool.DruidDataSource</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-0.driverClassName=com.mysql.jdbc.Driver</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-0.url=jdbc:mysql://192.0.2.5:3306/ds-0?useUnicode=true&amp;characterEncoding=utf8&amp;tinyInt1isBit=false&amp;useSSL=false&amp;serverTimezone=GMT</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-0.username=root</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-0.password=${DB_PASSWORD}</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 数据源 ds-1</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-1.type=com.alibaba.druid.pool.DruidDataSource</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-1.driverClassName=com.mysql.jdbc.Driver</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-1.url=jdbc:mysql://192.0.2.5:3306/ds-1?useUnicode=true&amp;characterEncoding=utf8&amp;tinyInt1isBit=false&amp;useSSL=false&amp;serverTimezone=GMT</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-1.username=root</span></span>
+<span class="line"><span>spring.shardingsphere.datasource.ds-1.password=${DB_PASSWORD}</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 默认数据源，未分片的表默认执行库</span></span>
+<span class="line"><span>spring.shardingsphere.sharding.default-data-source-name=ds-0</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>### 分库策略</span></span>
+<span class="line"><span># 分库分片健</span></span>
+<span class="line"><span>spring.shardingsphere.sharding.tables.t_order.database-strategy.standard.sharding-column=order_id</span></span>
+<span class="line"><span># 分库分片算法（标准分片-精准分片算法）</span></span>
+<span class="line"><span>spring.shardingsphere.sharding.tables.t_order.database-strategy.standard.precise-algorithm-class-name=com.xiaofu.sharding.algorithm.dbAlgorithm.MyDBPreciseShardingAlgorithm</span></span>
+<span class="line"><span># 分库分片算法（标准分片-范围分片算法）</span></span>
+<span class="line"><span>spring.shardingsphere.sharding.tables.t_order.database-strategy.standard.range-algorithm-class-name=com.xiaofu.sharding.algorithm.dbAlgorithm.MyDBRangeShardingAlgorithm</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>### 分表策略</span></span>
+<span class="line"><span># 分表分片健</span></span>
+<span class="line"><span>spring.shardingsphere.sharding.tables.t_order.table-strategy.standard.sharding-column=order_id</span></span>
+<span class="line"><span># 分表分片算法（标准分片-精准分片算法）</span></span>
+<span class="line"><span>spring.shardingsphere.sharding.tables.t_order.table-strategy.standard.precise-algorithm-class-name=com.xiaofu.sharding.algorithm.tableAlgorithm.MyTablePreciseShardingAlgorithm</span></span>
+<span class="line"><span># 分表分片算法（标准分片-范围分片算法）</span></span>
+<span class="line"><span>spring.shardingsphere.sharding.tables.t_order.table-strategy.standard.range-algorithm-class-name=com.xiaofu.sharding.algorithm.tableAlgorithm.MyTableRangeShardingAlgorithm</span></span></code></pre></div>
+<div class="code-example"><div class="code-toolbar"><span>properties</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">spring:</span></span>
+<span class="line"><span style="color:#24292E">shardingsphere:</span></span>
+<span class="line"><span style="color:#24292E">datasource:</span></span>
+<span class="line"><span style="color:#24292E">ds-0:</span></span>
+<span class="line"><span style="color:#24292E">driverClassName: com.mysql.jdbc.Driver</span></span>
+<span class="line"><span style="color:#24292E">password: CHANGE_ME</span></span>
+<span class="line"><span style="color:#24292E">type: com.alibaba.druid.pool.DruidDataSource</span></span>
+<span class="line"><span style="color:#24292E">url: jdbc:mysql://192.0.2.5:3306/ds-0?</span><span style="color:#D73A49">useUnicode</span><span style="color:#24292E">=true&amp;</span><span style="color:#D73A49">characterEncoding</span><span style="color:#24292E">=utf8&amp;</span><span style="color:#D73A49">tinyInt1isBit</span><span style="color:#24292E">=false&amp;</span><span style="color:#D73A49">useSSL</span><span style="color:#24292E">=false&amp;</span><span style="color:#D73A49">serverTimezone</span><span style="color:#24292E">=GMT</span></span>
+<span class="line"><span style="color:#24292E">username: root</span></span>
+<span class="line"><span style="color:#24292E">ds-1:</span></span>
+<span class="line"><span style="color:#24292E">driverClassName: com.mysql.jdbc.Driver</span></span>
+<span class="line"><span style="color:#24292E">password: CHANGE_ME</span></span>
+<span class="line"><span style="color:#24292E">type: com.alibaba.druid.pool.DruidDataSource</span></span>
+<span class="line"><span style="color:#24292E">url: jdbc:mysql://192.0.2.5:3306/ds-1?</span><span style="color:#D73A49">useUnicode</span><span style="color:#24292E">=true&amp;</span><span style="color:#D73A49">characterEncoding</span><span style="color:#24292E">=utf8&amp;</span><span style="color:#D73A49">tinyInt1isBit</span><span style="color:#24292E">=false&amp;</span><span style="color:#D73A49">useSSL</span><span style="color:#24292E">=false&amp;</span><span style="color:#D73A49">serverTimezone</span><span style="color:#24292E">=GMT</span></span>
+<span class="line"><span style="color:#24292E">username: root</span></span>
+<span class="line"><span style="color:#24292E">names: ds-0,ds-1</span></span>
+<span class="line"><span style="color:#24292E">sharding:</span></span>
+<span class="line"><span style="color:#24292E">default-data-source-name: ds-0</span></span>
+<span class="line"><span style="color:#24292E">tables:</span></span>
+<span class="line"><span style="color:#24292E">t_order:</span></span>
+<span class="line"><span style="color:#24292E">database-strategy:</span></span>
+<span class="line"><span style="color:#24292E">standard:</span></span>
+<span class="line"><span style="color:#24292E">precise-algorithm-class-name: com.xiaofu.sharding.algorithm.dbAlgorithm.MyDBPreciseShardingAlgorithm</span></span>
+<span class="line"><span style="color:#24292E">range-algorithm-class-name: com.xiaofu.sharding.algorithm.dbAlgorithm.MyDBRangeShardingAlgorithm</span></span>
+<span class="line"><span style="color:#24292E">sharding-column: order_id</span></span>
+<span class="line"><span style="color:#24292E">table-strategy:</span></span>
+<span class="line"><span style="color:#24292E">standard:</span></span>
+<span class="line"><span style="color:#24292E">precise-algorithm-class-name: com.xiaofu.sharding.algorithm.tableAlgorithm.MyTablePreciseShardingAlgorithm</span></span>
+<span class="line"><span style="color:#24292E">range-algorithm-class-name: com.xiaofu.sharding.algorithm.tableAlgorithm.MyTableRangeShardingAlgorithm</span></span>
+<span class="line"><span style="color:#24292E">sharding-column: order_id</span></span></code></pre></div>
+<div class="code-example"><div class="code-toolbar"><span>properties</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#分表配置</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.names</span><span style="color:#24292E">=m1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.main.allow-bean-definition-overriding</span><span style="color:#24292E">=true</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.props.max.connections.size.per.query</span><span style="color:#24292E">=50</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.type</span><span style="color:#24292E">=com.example.config.ShardingDruidDataSource</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.driver-class-name</span><span style="color:#24292E">=com.mysql.jdbc.Driver</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.url</span><span style="color:#24292E">=jdbc:mysql://192.0.2.15:3306/example_db?</span><span style="color:#D73A49">useUnicode</span><span style="color:#24292E">=true&amp;</span><span style="color:#D73A49">characterEncoding</span><span style="color:#24292E">=utf8&amp;</span><span style="color:#D73A49">autoReconnect</span><span style="color:#24292E">=true&amp;</span><span style="color:#D73A49">allowMultiQueries</span><span style="color:#24292E">=true&amp;</span><span style="color:#D73A49">zeroDateTimeBehavior</span><span style="color:#24292E">=convertToNull&amp;</span><span style="color:#D73A49">useSSL</span><span style="color:#24292E">=false</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.connectionInitSqls</span><span style="color:#24292E">=set names utf8mb4</span><span style="color:#6A737D">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.username</span><span style="color:#24292E">=example_user</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.password</span><span style="color:#24292E">=${DB_PASSWORD}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.connection-properties</span><span style="color:#24292E">=</span><span style="color:#D73A49">password</span><span style="color:#24292E">=${DB_PASSWORD}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.password-callback-class-name</span><span style="color:#24292E">=com.example.callback.DBPasswordCallback</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.min-idle</span><span style="color:#24292E">=30</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.initial-size</span><span style="color:#24292E">=30</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.max-active</span><span style="color:#24292E">=300</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.filters</span><span style="color:#24292E">=stat</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.maxWait</span><span style="color:#24292E">=60000</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.timeBetweenEvictionRunsMillis</span><span style="color:#24292E">=60000</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.minEvictableIdleTimeMillis</span><span style="color:#24292E">=300000</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.validationQuery</span><span style="color:#24292E">=SELECT </span><span style="color:#032F62">'x'</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.testWhileIdle</span><span style="color:#24292E">=true</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.testOnBorrow</span><span style="color:#24292E">=false</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.testOnReturn</span><span style="color:#24292E">=false</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.poolPreparedStatements</span><span style="color:#24292E">=false</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.maxOpenPreparedStatements</span><span style="color:#24292E">=100</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.slowSqlMillis</span><span style="color:#24292E">=5000</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.datasource.m1.isLogSlowSql</span><span style="color:#24292E">=true</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.props.sql.show</span><span style="color:#24292E">=true</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group.actual-data-nodes</span><span style="color:#24292E">=m1.t_chat_group_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_chat_group.table-strategy.inline.algorithm-expression=t_chat_group_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_member.actual-data-nodes</span><span style="color:#24292E">=m1.t_chat_group_member_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_member.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_member.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_member.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_chat_group_member.table-strategy.inline.algorithm-expression=t_chat_group_member_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_member.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_statistics.actual-data-nodes</span><span style="color:#24292E">=m1.t_chat_group_statistics_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_statistics.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_statistics.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_statistics.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_chat_group_statistics.table-strategy.inline.algorithm-expression=t_chat_group_statistics_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_chat_group_statistics.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact.actual-data-nodes</span><span style="color:#24292E">=m1.t_contact_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_contact.table-strategy.inline.algorithm-expression=t_contact_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact_staff.actual-data-nodes</span><span style="color:#24292E">=m1.t_contact_staff_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact_staff.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact_staff.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact_staff.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_contact_staff.table-strategy.inline.algorithm-expression=t_contact_staff_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_contact_staff.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_cs_statistics.actual-data-nodes</span><span style="color:#24292E">=m1.t_cs_statistics_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_cs_statistics.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_cs_statistics.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_cs_statistics.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_cs_statistics.table-strategy.inline.algorithm-expression=t_cs_statistics_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_cs_statistics.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics.actual-data-nodes</span><span style="color:#24292E">=m1.t_statistics_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_statistics.table-strategy.inline.algorithm-expression=t_statistics_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics_total.actual-data-nodes</span><span style="color:#24292E">=m1.t_statistics_total_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics_total.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics_total.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics_total.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_statistics_total.table-strategy.inline.algorithm-expression=t_statistics_total_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_statistics_total.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_clc_statistics.actual-data-nodes</span><span style="color:#24292E">=m1.t_clc_statistics_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_clc_statistics.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_clc_statistics.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_clc_statistics.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_clc_statistics.table-strategy.inline.algorithm-expression=t_clc_statistics_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_clc_statistics.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send.actual-data-nodes</span><span style="color:#24292E">=m1.t_group_send_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_group_send.table-strategy.inline.algorithm-expression=t_group_send_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission.actual-data-nodes</span><span style="color:#24292E">=m1.t_group_send_mission_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_group_send_mission.table-strategy.inline.algorithm-expression=t_group_send_mission_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission_contact.actual-data-nodes</span><span style="color:#24292E">=m1.t_group_send_mission_contact_$-&gt;{1..64}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission_contact.key-generator.column</span><span style="color:#24292E">=id</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission_contact.key-generator.type</span><span style="color:#24292E">=MyShardingKey</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission_contact.table-strategy.standard.sharding-column</span><span style="color:#24292E">=corp_id</span></span>
+<span class="line"><span style="color:#6A737D">#spring.shardingsphere.sharding.tables.t_group_send_mission_contact.table-strategy.inline.algorithm-expression=t_group_send_mission_contact_$-&gt;{corp_id % 64 + 1}</span></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.tables.t_group_send_mission_contact.table-strategy.standard.precise-algorithm-class-name</span><span style="color:#24292E">=com.example.config.TableShardingAlgorithm</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">spring.shardingsphere.sharding.broadcast-tables</span><span style="color:#24292E">=t_corp</span></span>
+<span class="line"><span style="color:#24292E">sharding.jdbc.config.sharding.binding-tables[0]=t_chat_group,t_chat_group_member,t_chat_group_statistics,t_contact,t_contact_staff,t_cs_statistics,t_statistics,t_statistics_total,t_group_send,t_group_send_mission,t_group_send_mission_contact,t_clc_statistics</span></span>
+<span class="line"><span style="color:#6A737D">#sharding.jdbc.config.sharding.binding-tables[0]=t_chat_group,t_chat_group_member,t_chat_group_statistics</span></span>
+<span class="line"><span style="color:#6A737D">#sharding.jdbc.config.sharding.binding-tables[1]=t_contact,t_contact_staff,t_cs_statistics</span></span>
+<span class="line"><span style="color:#6A737D">#sharding.jdbc.config.sharding.binding-tables[2]=t_statistics,t_statistics_total</span></span>
+<span class="line"><span style="color:#6A737D">#sharding.jdbc.config.sharding.binding-tables[3]=t_group_send,t_group_send_mission,t_group_send_mission_contact</span></span></code></pre></div>
+<p><a id="j3s0T"></a></p>
+<h2 id="section-7">其它文章</h2>
+<p><a href="https://blog.csdn.net/qq_41549632/article/details/119280238">sharding-jdbc 分库分表的 4种分片策略_天亮i的博客-CSDN博客_shardingjdbc分库分表策略</a></p>
+<p><a href="https://blog.csdn.net/zwjzone/article/details/124387026">ShardingSphere-JDBC整合druid配置数据源_码里法的博客-CSDN博客_shardingsphere 指定数据源</a></p>
+<p><a href="https://www.jianshu.com/p/0bf72d112522">Shardingsphere与dynamic-datasource配合实现多数据源切换</a></p>
+<p><a href="https://www.jianshu.com/p/f5e68c8d7852">Sharding sphere实现读写分离+分库分表</a></p>
+<p><a href="https://www.jianshu.com/p/20c0d4114632">sharding-jdbc与Sharding-Proxy</a></p>
+<p><a href="https://blog.csdn.net/weixin_43584430/article/details/120367418">Sharding-JDBC整合Mybatisplus分片键生成策略冲突问题及分析解决_鬼火123的博客-CSDN博客</a></p>
+<p><a href="http://t.zoukankan.com/heei-p-15167024.html">sharding jdbc 按日分表 自动建表实现 - 走看看</a></p>
+<p>4.1.1:</p>
+<p><a id="FWtlL"></a></p>
+<h3 id="section-8">不停机数据迁移</h3>
+<p>参考：</p>
+<ul>
+<li><a href="https://zhuanlan.zhihu.com/p/413084345">分库分表后，如何不停机迁移数据？</a></li>
+<li><a href="https://learn.lianglianglee.com/%E4%B8%93%E6%A0%8F/%E5%88%86%E5%B8%83%E5%BC%8F%E6%8A%80%E6%9C%AF%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E6%88%9845%E8%AE%B2-%E5%AE%8C/26%20%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E4%BB%A5%E5%90%8E%EF%BC%8C%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E6%89%A9%E5%AE%B9%EF%BC%9F.md">分布式技术原理与实战45讲-完/26%20分库分表以后，如何实现扩容</a></li>
+</ul>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/starrocks-introduction/"><span>同分类 · 上一篇</span><strong>StarRocks 入门</strong></a><a href="/article-library-site/tech/nacos-notes/" class="next-article"><span>同分类 · 下一篇</span><strong>Nacos 配置与排查笔记</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="使用 IntelliJ IDEA HTTP Client 编写请求、切换环境并复用响应中的令牌。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="IDEA HTTP Client 工具使用"><meta property="og:description" content="使用 IntelliJ IDEA HTTP Client 编写请求、切换环境并复用响应中的令牌。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>IDEA HTTP Client 工具使用 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>开发工具</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">12 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">走进 Http Client</a><a href="#section-2" style="--indent:0">语法部分</a><a href="#section-3" style="--indent:0">创建 HTTP request 文件</a><a href="#section-4" style="--indent:0">编辑 HTTP request 文件</a><a href="#section-5" style="--indent:0">HTTP Client 进阶玩法</a><a href="#section-6" style="--indent:1">使用环境变量</a><a href="#section-7" style="--indent:1">定义环境变量</a><a href="#section-8" style="--indent:1">巧用 response handler 脚本</a><a href="#section-9" style="--indent:0">辅助功能说明</a><a href="#section-10" style="--indent:1">RestfulToolkit</a><a href="#section-11" style="--indent:1">Live Template</a><a href="#section-12" style="--indent:1">JSON Viewer</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / 开发工具</p><h1 id="article-title">IDEA HTTP Client 工具使用</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 8 分钟</span></div><p class="tech-dates">原笔记 2021-09-26<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>使用 IntelliJ IDEA HTTP Client 编写请求、切换环境并复用响应中的令牌。</p>
+<blockquote>
+<p>阅读说明：菜单和截图来自原笔记使用的 IDEA 版本。登录请求与环境配置已换成示例值；私有环境文件请同时检查 Git 忽略规则，避免把实际令牌或口令提交到仓库。</p>
+</blockquote>
+<p><a id="MD9VX"></a></p>
+<h2 id="section-1">走进 Http Client</h2>
+<p>HTTP Client 是 IDEA 默认绑定好并启用的插件，如果你那里没有启用，按照下图启用就好</p>
+<p><img src="/article-library-site/media/bf33e09b36f366c5dc.webp" alt="IDEA http client工具使用配图 1" loading="lazy" decoding="async" /></p>
+<p>点击菜单：Tools — HTTP Client — Test RESTful Web Service</p>
+<p><img src="/article-library-site/media/816bc243f806cc8f32.webp" alt="IDEA http client工具使用配图 2" loading="lazy" decoding="async" /></p>
+<p>接下来进入下面的界面：</p>
+<p><img src="/article-library-site/media/3aa823db89a8bdfdc5.webp" alt="IDEA http client工具使用配图 3" loading="lazy" decoding="async" /></p>
+<p>上图已给出提示，REST Client 是被弃用的，点击右侧的 Convert request to new format , 进到下面界面：</p>
+<p><img src="/article-library-site/media/ab67e3f3ec94d41866.webp" alt="IDEA http client工具使用配图 4" loading="lazy" decoding="async" /></p>
+<p>默认会创建一个名为 rest-api.http 的文件，该文件被存储在 Scratches 文件夹下，为了突出主角光环，关于 Scratch Files 请官网自行查看 （<strong>继续向下看不影响理解的</strong>），黄色框线的功能也非常有用，继续向下看</p>
+<p><a id="u6yuw"></a></p>
+<h2 id="section-2">语法部分</h2>
+<p>首先通过 ### 三个井号键来分开每个请求体，然后请求url和header参数是紧紧挨着的，请求参数不管是POST的body传参还是GET的parameter传参，都是要换行的</p>
+<p><a id="jdwC9"></a></p>
+<h2 id="section-3">创建 HTTP request 文件</h2>
+<p>刚刚提到的 rest-api.http 就是 HTTP request 文件，可以通过两种方式创建：</p>
+<ol>
+<li>通过快捷键 ⇧⌘N 然后选择 <strong>HTTP Request</strong>. （文件存放在Scratches 文件夹）</li>
+<li>通过菜单操作 File—New—HTTP Request （文件存放在我们指定的目录下，就和我们平时创建class/package是一样一样滴）</li>
+</ol>
+<p>如果在项目中使用，这里推荐使用第二种方式，因为它可以作为项目文件，通过 Git 提交到仓库，大家共享文件，共同维护接口请求数据，自然就不会出现调试别人接口还要导入他人数据的情况啦</p>
+<p><a id="teULE"></a></p>
+<h2 id="section-4">编辑 HTTP request 文件</h2>
+<p>我们模拟实际项目中场景来编辑文件</p>
+<ol>
+<li>用户登录，成功后获取 Token，通常是 POST 请求</li>
+<li>用户后续访问行为都要在请求头中携带登录成功返回的 Token</li>
+</ol>
+<p>通过点击 Add Request，选择相应的方法就可以编写啦</p>
+<p><img src="/article-library-site/media/e9abd9d7cc2eb2064e.webp" alt="IDEA http client工具使用配图 5" loading="lazy" decoding="async" /></p>
+<p>都知道，通常写一个完整的请求需要写好多内容，贴心的 IDEA 给我们提供了模版，我们只需要在 Examples 中找模版就可以啦，比如找 POST 请求的模版，选取合适的拷贝过去就可以，so easy～～～</p>
+<p><img src="/article-library-site/media/4296c95eaabc3542ca.webp" alt="IDEA http client工具使用配图 6" loading="lazy" decoding="async" /></p>
+<p>到这里，就可以发送基本的请求了，但是，一个项目中接口众多，如何快速生成参数？如何快速切换端口？如何让登录之后的每个请求自动携带成功返回的 Token？我们需要更高级的玩法</p>
+<p><a id="JhsFC"></a></p>
+<h2 id="section-5">HTTP Client 进阶玩法</h2>
+<p><a id="QJ9T6"></a></p>
+<h3 id="section-6">使用环境变量</h3>
+<p>在编写HTTP请求时，可以使用变量对其元素进行参数化。变量可以保存请求的host、port和path、查询参数或值、请求头值或请求体值等.</p>
+<p>使用变量的方式非常简单，就用两个大括号包围定义好的变量就可以了，就像这样：</p>
+<p>当然我们也要有地方定义变量</p>
+<p><a id="DeYR0"></a></p>
+<h3 id="section-7">定义环境变量</h3>
+<p>环境变量需要定义在环境文件中，环境文件有两种：</p>
+<ol>
+<li>创建名为 rest-client.env.json 或者 http-client.env.json 的环境文件(其实里面就是保存 JSON 数据)，该文件里可以定义用在整个项目上的所有常规变量</li>
+<li>创建名为rest-client.private.env.json 或者 http-client.private.env.json， 看文件名你应该也猜到这是保存敏感数据的，比如密码，token等，该文件默认是被加入到 VCS 的 ignore文件中的，同时优先级高于其他环境文件， 也就是说，该文件的变量会覆盖其他环境文件中的变量值</li>
+</ol>
+<p>里面的文件内容就像这样</p>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#005CC5">  "dev"</span><span style="color:#24292E">: {</span></span>
+<span class="line"><span style="color:#005CC5">    "host"</span><span style="color:#24292E">: </span><span style="color:#032F62">"localhost"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">    "port"</span><span style="color:#24292E">: </span><span style="color:#005CC5">8081</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">    "identifier"</span><span style="color:#24292E">: </span><span style="color:#032F62">"demo"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">    "password"</span><span style="color:#24292E">: </span><span style="color:#032F62">"CHANGE_ME"</span></span>
+<span class="line"><span style="color:#24292E">  },</span></span>
+<span class="line"><span style="color:#005CC5">  "prod"</span><span style="color:#24292E">: {</span></span>
+<span class="line"><span style="color:#005CC5">    "host"</span><span style="color:#24292E">: </span><span style="color:#032F62">"api.example.com"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">    "port"</span><span style="color:#24292E">: </span><span style="color:#005CC5">8080</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">    "identifier"</span><span style="color:#24292E">: </span><span style="color:#032F62">"demo"</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">    "password"</span><span style="color:#24292E">: </span><span style="color:#032F62">"CHANGE_ME"</span></span>
+<span class="line"><span style="color:#24292E">  }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>运行一下我们编写的请求吧：</p>
+<p>IDEA自动识别多个环境，这样就可以轻而易举的切换环境，使用不同的变量值了（这皮鞋，你说亮不亮，还有更亮的）</p>
+<p><a id="Y3Q7t"></a></p>
+<h3 id="section-8">巧用 response handler 脚本</h3>
+<p>上面提到，我们要让登录成功后的所有请求都自动携带成功返回的 Token，这样不用我们每次都手动将其添加到header中，同样有两种方式将脚本插入到请求中</p>
+<ul>
+<li>内嵌方式</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">GET host/api/test</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">&gt; {</span><span style="color:#B31D28">%</span></span>
+<span class="line"><span style="color:#B31D28">response</span><span style="color:#B31D28"> 脚本</span></span>
+<span class="line"><span style="color:#B31D28">%</span><span style="color:#24292E">}</span></span></code></pre></div>
+<ul>
+<li>外部文件方式（就是将内嵌的脚本抽离出到文件中）</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">GET host/api/test</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">&gt; scripts/my-script.js</span></span></code></pre></div>
+<p>以登录返回获取的token设置到变量中为例，看代码：</p>
+<div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">POST http:</span><span style="color:#6A737D">//{{host}}:{{port}}/login</span></span>
+<span class="line"><span style="color:#24292E">Content-Type: application/json</span></span>
+<span class="line"><span style="color:#24292E">Accept: application/json</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">&gt; {</span><span style="color:#B31D28">%</span></span>
+<span class="line"><span style="color:#B31D28">client.global.set(</span><span style="color:#005CC5">"auth_token"</span><span style="color:#B31D28">,</span><span style="color:#B31D28"> response.body.result.token);</span></span>
+<span class="line"><span style="color:#B31D28"> %</span><span style="color:#24292E">}</span></span></code></pre></div>
+<p>注意</p>
+<p>response.body.result.token 是我按照我登录返回的数据结构写的，不同结构不一样，你也可以是这样的 response.body.token , response.body 之后根据你的数据结构发挥吧</p>
+<p>我还是不放心，把我的登录返回结构（项目中怎样设计这种结构，可以参考之前写的Springboot返回统一JSON数据格式是怎么实现的？)粘贴在此处吧，这回理解了吧？</p>
+<p>接下来我们就可以愉快的在其他请求上携带这个 Token 了</p>
+<p><img src="/article-library-site/media/cf82a05f09e2593535.webp" alt="IDEA http client工具使用配图 10" loading="lazy" decoding="async" /></p>
+<p>注意</p>
+<p>这里的Authorization 类型，大家根据自己的实际情况做修改，比如：Authorization: Bearer {{auth_token}}</p>
+<p>以上这些已经满足我的日常使用，没有进一步了解更多，更多关于 Response 脚本的用法请大家查看官网 HTTP Response reference吧</p>
+<p>你以为到这里结束了（OMG），还有香料需要和大家分享，搭配上面功能使用更棒哦</p>
+<p><a id="vcrTK"></a></p>
+<h2 id="section-9">辅助功能说明</h2>
+<p><a id="sJ95v"></a></p>
+<h3 id="section-10">RestfulToolkit</h3>
+<p>RestfulToolkit 同样是个插件，在插件市场搜索安装即可</p>
+<p><img src="/article-library-site/media/a7e568efc55d244d48.webp" alt="IDEA http client工具使用配图 11" loading="lazy" decoding="async" /></p>
+<p>安装了这个插件后，打开侧边栏，项目的所有接口信息都会展现在此处：</p>
+<p><img src="/article-library-site/media/6a57b22aad33f038fc.webp" alt="IDEA http client工具使用配图 12" loading="lazy" decoding="async" /></p>
+<p>我常用的功能就是把指定接口生成的JSON数据拷贝到 HTTP request 文件中，免去手写的麻烦了，你说方便不？</p>
+<p>除此之外，使用快捷键 cmd+\, 可以根据关键字快速找到接口，回车迅速到达代码接口位置，这也是带来了极大的便利</p>
+<p><img src="/article-library-site/media/445291d72343a8aa08.webp" alt="IDEA http client工具使用配图 13" loading="lazy" decoding="async" /></p>
+<p><a id="HOh0B"></a></p>
+<p><a id="cYgBa"></a></p>
+<p><a id="nAbSR"></a></p>
+<h3 id="section-11">Live Template</h3>
+<p>项目中请求内容各有不同，IDEA标准提供的GET POST 请求案例可能还不能满足我们的需求，这时我们就可以利用 Live Template 定制自己的模版，迅速生成request 内容，像这样：</p>
+<p><img src="/article-library-site/media/ea035ef3ff750e4da3.webp" alt="IDEA http client工具使用配图 14" loading="lazy" decoding="async" /></p>
+<p><a id="x8pe7"></a></p>
+<p><a id="zqcAP"></a></p>
+<p><a id="RWZoV"></a></p>
+<h3 id="section-12">JSON Viewer</h3>
+<p>JSON Viewer是一款 Chrome浏览器插件，在浏览器 Omini-box 中输入 json-viewer + Tab, 粘贴json在此处，就可以对json数据进行格式化了</p>
+<p><img src="/article-library-site/media/bc6784915970c548f4.webp" alt="IDEA http client工具使用配图 15" loading="lazy" decoding="async" /></p>
+<p>打开开发者工具，在Network下双击某个HTTP请求，会自动在 new tab下格式化返回的json数据，免去了粘贴数据然后格式化的烦恼</p>
+<p>关于自测接口的干货我抖的差不多了，抖抖更健康</p>
+<p><a id="FPFZO"></a></p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/swagger-annotations/"><span>同分类 · 上一篇</span><strong>Swagger 2 常用注解</strong></a><a href="/article-library-site/tech/" class="next-article"><span>继续阅读</span><strong>浏览全部技术分享</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>

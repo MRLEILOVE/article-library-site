@@ -1,0 +1,355 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="通过 MapStruct 在编译期生成对象映射代码，整理字段转换和常见配置。"><meta name="theme-color" content="#192d42"><meta property="og:title" content="MapStruct 对象映射工具"><meta property="og:description" content="通过 MapStruct 在编译期生成对象映射代码，整理字段转换和常见配置。"><meta property="og:type" content="article"><link rel="icon" href="/article-library-site/favicon.svg" type="image/svg+xml"><link rel="alternate" type="application/rss+xml" title="程序员的离谱职场日记 · 有声书" href="/article-library-site/journal-podcast.xml"><title>MapStruct 对象映射工具 — 阿雷 · 文字之间</title><link rel="stylesheet" href="/article-library-site/_astro/Base.ooSHCOEQ.css"></head><body class="reader-page"><a class="skip-link" href="#main">跳到正文</a><header class="site-header"><div class="header-inner wrap"><a href="/article-library-site/" class="brand" aria-label="阿雷 · 文字之间，首页"><span class="brand-symbol" aria-hidden="true">[<i>·</i>]</span><span>阿雷<span class="brand-divider">/</span><span class="brand-subtitle">文字之间</span></span></a><nav aria-label="主导航"><a href="/article-library-site/journal/">职场日记</a><a href="/article-library-site/essays/">随想录</a><a href="/article-library-site/tech/" aria-current="page">技术分享</a><a href="/article-library-site/#about" class="about-nav">关于</a></nav></div></header><main id="main"><div class="wrap"><nav class="breadcrumb" aria-label="当前位置"><a href="/article-library-site/">首页</a><span>/</span><a href="/article-library-site/tech/">技术分享</a><span>/</span><span>Java 与 Spring</span></nav><div class="reading-layout technical-reading"><aside class="reading-sidebar"><details class="reader-directory"><summary><span>本文目录</span><span class="directory-count">7 节</span><span class="directory-toggle" aria-hidden="true">＋</span></summary><nav class="directory-scroll tech-toc" aria-label="本文目录"><a href="#article-title">文章开头</a><a href="#section-1" style="--indent:0">一、Object mapping 的技术分类</a><a href="#section-2" style="--indent:0">二、MapStruct的使用</a><a href="#section-3" style="--indent:1">工程中引入 maven 依赖</a><a href="#section-4" style="--indent:1">基本映射</a><a href="#section-5" style="--indent:1">多对一</a><a href="#section-6" style="--indent:1">Spring 注入的方式</a><a href="#section-7" style="--indent:1">MapStruct 注解的关键词</a></nav><a href="/article-library-site/tech/" class="directory-return">返回技术分享 · 全部 50 篇</a></details><div class="sidebar-footnote"><span class="tiny-line"></span> 把问题讲清楚。</div></aside><div class="reading-main"><article><header class="article-header"><p class="eyebrow">TECH NOTES / Java 与 Spring</p><h1 id="article-title">MapStruct 对象映射工具</h1><div class="article-meta"><span>阿雷整理</span><span>学习笔记</span><span>约 23 分钟</span></div><p class="tech-dates">原笔记 2021-10-08<span> · </span>整理于 2026-10-05</p></header><div class="prose technical-prose"><p>通过 MapStruct 在编译期生成对象映射代码，整理字段转换和常见配置。</p>
+<blockquote>
+<p>阅读说明：性能对比图来自原参考资料，不能代表所有业务场景。关注生成代码和字段映射规则，速度结论需在自己的对象结构和运行环境中测量。</p>
+</blockquote>
+<p><a id="PqwoX"></a></p>
+<h2 id="section-1">一、Object mapping 的技术分类</h2>
+<p><strong>* 运行期 反射调用set/get 或者是直接对成员变量赋值 。 该方式通过invoke执行赋值 *</strong>，实现时一般会采用beanutil, Javassist等开源库。这类的代表：Dozer,ModelMaper</p>
+<p><strong>* 编译期 动态生成set/get代码的class文件 ，在运行时直接调用该class文件。*</strong> 该方式实际上扔会存在set/get代码，只是不需要自己写了。 这类的代表：MapStruct,Selma,Orika ### 主要框架性能对比： 每秒钟执行的object mapping越多越好。</p>
+<p><img src="/article-library-site/media/832218f8b6acc903ea.webp" alt="MapStruct对象映射工具配图 1" loading="lazy" decoding="async" /></p>
+<p>明显可以看出通过在运行期进行反射的方式执行，性能远不如编译器生成class的方式；</p>
+<p>MapStruct 与 Selma的对比： <a href="https://java.libhunt.com/project/mapstruct/vs/selma">https://java.libhunt.com/project/mapstruct/vs/selma</a></p>
+<p>MapStruct 与 ModelMapper的对比： <a href="https://java.libhunt.com/project/mapstruct/vs/modelmapper">https://java.libhunt.com/project/mapstruct/vs/modelmapper</a></p>
+<p>综合比较性能、问题排查、文档、成熟度、扩展性等因素来考虑，MapStruct 是一个不错的选择；</p>
+<p><a id="c1cCB"></a></p>
+<h2 id="section-2">二、MapStruct的使用</h2>
+<p>在一个成熟的工程中，尤其是现在的分布式系统中，应用与应用之间，还有单独的应用细分模块之后，DO 一般不会让外部依赖，这时候需要在提供对外接口的模块里放 DTO 用于对象传输，也即是 DO 对象对内，DTO对象对外，DTO 可以根据业务需要变更，并不需要映射 DO 的全部属性。</p>
+<p>这种 对象与对象之间的互相转换，就需要有一个专门用来解决转换问题的工具，毕竟每一个字段都 get/set 会很麻烦。</p>
+<p>MapStruct 就是这样的一个属性映射工具，只需要定义一个 Mapper 接口，MapStruct 就会自动实现这个映射接口，避免了复杂繁琐的映射实现。MapStruct官网地址： <a href="http://mapstruct.org/">http://mapstruct.org/</a></p>
+<p><a id="knI7e"></a></p>
+<h3 id="section-3">工程中引入 maven 依赖</h3>
+<div class="code-example"><div class="code-toolbar"><span>xml</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">&lt;</span><span style="color:#22863A">properties</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">    &lt;</span><span style="color:#22863A">mapstruct.version</span><span style="color:#24292E">&gt;1.2.0.Final&lt;/</span><span style="color:#22863A">mapstruct.version</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">&lt;/</span><span style="color:#22863A">properties</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">&lt;</span><span style="color:#22863A">dependencies</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">    &lt;</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">      &lt;</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;org.mapstruct&lt;/</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">      &lt;</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;mapstruct-jdk8&lt;/</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">      &lt;</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;${mapstruct.version}&lt;/</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">    &lt;/</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">    &lt;</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">      &lt;</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;org.mapstruct&lt;/</span><span style="color:#22863A">groupId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">      &lt;</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;mapstruct-processor&lt;/</span><span style="color:#22863A">artifactId</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">      &lt;</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;${mapstruct.version}&lt;/</span><span style="color:#22863A">version</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">    &lt;/</span><span style="color:#22863A">dependency</span><span style="color:#24292E">&gt;</span></span>
+<span class="line"><span style="color:#24292E">&lt;/</span><span style="color:#22863A">dependencies</span><span style="color:#24292E">&gt;</span></span></code></pre></div>
+<p><a id="Ey8HZ"></a></p>
+<h3 id="section-4">基本映射</h3>
+<p>这里定义两个 DO 对象 Person 和 User，其中 user 是 Person 的一个属性 ，一个 DTO 对象 PersonDTO</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">NoArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> Person</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long id;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String name;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String email;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Date birthday;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> User user;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">NoArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> User</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Integer age;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">NoArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> PersonDTO</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long id;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String name;</span></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 对应 Person.user.age</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Integer age;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String email;</span></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 与 DO 里面的字段名称(birthDay)不一致</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Date birth;</span></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 对 DO 里面的字段(birthDay)进行拓展,dateFormat 的形式</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String birthDateFormat;</span></span>
+<span class="line"><span style="color:#6A737D">    /**</span></span>
+<span class="line"><span style="color:#6A737D">     * 对 DO 里面的字段(birthDay)进行拓展,expression 的形式</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String birthExpressionFormat;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>写一个 Mapper 接口 PersonConverter，其中两个方法，一个是单实体映射，另一个是List映射</p>
+<p>若源对象属性与目标对象属性名字一致，会自动映射对应属性，不一样的需要指定，也可以用 format 转成自己想要的类型，也支持表达式的方式，可以看到像 id、name、email这些名词一致的我并没有指定 source-target，而birthday-birth指定了，转换格式的 birthDateFormat 加了dateFormat 或者 birthExpressionFormat 加了 expression，如果某个属性你不想映射，可以加个 ignore=true</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Mapper</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> interface</span><span style="color:#6F42C1"> PersonConverter</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">    PersonConverter INSTANCE </span><span style="color:#D73A49">=</span><span style="color:#24292E"> Mappers.</span><span style="color:#6F42C1">getMapper</span><span style="color:#24292E">(PersonConverter.class);</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Mappings</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthday"</span><span style="color:#24292E">, </span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birth"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthday"</span><span style="color:#24292E">, </span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthDateFormat"</span><span style="color:#24292E">, </span><span style="color:#005CC5">dateFormat</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "yyyy-MM-dd HH:mm:ss"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthExpressionFormat"</span><span style="color:#24292E">, </span><span style="color:#005CC5">expression</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "java(org.apache.commons.lang3.time.DateFormatUtils.format(person.getBirthday(),</span><span style="color:#005CC5">\"</span><span style="color:#032F62">yyyy-MM-dd HH:mm:ss</span><span style="color:#005CC5">\"</span><span style="color:#032F62">))"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "user.age"</span><span style="color:#24292E">, </span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "age"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "email"</span><span style="color:#24292E">, </span><span style="color:#005CC5">ignore</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> true</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">    })</span></span>
+<span class="line"><span style="color:#24292E">    PersonDTO </span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(Person </span><span style="color:#E36209">person</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    List&lt;</span><span style="color:#D73A49">PersonDTO</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(List&lt;</span><span style="color:#D73A49">Person</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">people</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>编译MapStruct之后，手工编译或者启动 IDE 的时候 IDE 也会帮我们编译， 会自动在 target/classes 下生成对应的实现类</p>
+<div class="code-example"><div class="code-toolbar"><span>shell</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">手工编译命令</span></span>
+<span class="line"><span style="color:#6F42C1">mvn</span><span style="color:#032F62"> compile</span></span></code></pre></div>
+<p>注意！！！下面这个 PersonConverterImpl 是自动生成的，不是自己写的！</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> PersonConverterImpl</span><span style="color:#D73A49"> implements</span><span style="color:#6F42C1"> PersonConverter</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#6F42C1"> PersonConverterImpl</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> PersonDTO </span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(Person </span><span style="color:#E36209">person</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (person </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        } </span><span style="color:#D73A49">else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">            PersonDTO personDTO </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> PersonDTO</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">            personDTO.</span><span style="color:#6F42C1">setBirth</span><span style="color:#24292E">(person.</span><span style="color:#6F42C1">getBirthday</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (person.</span><span style="color:#6F42C1">getBirthday</span><span style="color:#24292E">() </span><span style="color:#D73A49">!=</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">                personDTO.</span><span style="color:#6F42C1">setBirthDateFormat</span><span style="color:#24292E">((</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> SimpleDateFormat</span><span style="color:#24292E">(</span><span style="color:#032F62">"yyyy-MM-dd HH:mm:ss"</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">format</span><span style="color:#24292E">(person.</span><span style="color:#6F42C1">getBirthday</span><span style="color:#24292E">()));</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">            Integer age </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">personUserAge</span><span style="color:#24292E">(person);</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (age </span><span style="color:#D73A49">!=</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#24292E">                personDTO.</span><span style="color:#6F42C1">setAge</span><span style="color:#24292E">(age);</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">            personDTO.</span><span style="color:#6F42C1">setId</span><span style="color:#24292E">(person.</span><span style="color:#6F42C1">getId</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">            personDTO.</span><span style="color:#6F42C1">setName</span><span style="color:#24292E">(person.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">            personDTO.</span><span style="color:#6F42C1">setBirthExpressionFormat</span><span style="color:#24292E">(DateFormatUtils.</span><span style="color:#6F42C1">format</span><span style="color:#24292E">(person.</span><span style="color:#6F42C1">getBirthday</span><span style="color:#24292E">(), </span><span style="color:#032F62">"yyyy-MM-dd HH:mm:ss"</span><span style="color:#24292E">));</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E"> personDTO;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#24292E"> List&lt;</span><span style="color:#D73A49">PersonDTO</span><span style="color:#24292E">&gt; </span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(List&lt;</span><span style="color:#D73A49">Person</span><span style="color:#24292E">&gt; </span><span style="color:#E36209">people</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (people </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        } </span><span style="color:#D73A49">else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">            List&lt;</span><span style="color:#D73A49">PersonDTO</span><span style="color:#24292E">&gt; list </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> ArrayList</span><span style="color:#24292E">(people.</span><span style="color:#6F42C1">size</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">            Iterator var3 </span><span style="color:#D73A49">=</span><span style="color:#24292E"> people.</span><span style="color:#6F42C1">iterator</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            while</span><span style="color:#24292E">(var3.</span><span style="color:#6F42C1">hasNext</span><span style="color:#24292E">()) {</span></span>
+<span class="line"><span style="color:#24292E">                Person person </span><span style="color:#D73A49">=</span><span style="color:#24292E"> (Person)var3.</span><span style="color:#6F42C1">next</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">                list.</span><span style="color:#6F42C1">add</span><span style="color:#24292E">(</span><span style="color:#005CC5">this</span><span style="color:#24292E">.</span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(person));</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E"> list;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Integer </span><span style="color:#6F42C1">personUserAge</span><span style="color:#24292E">(Person </span><span style="color:#E36209">person</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (person </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        } </span><span style="color:#D73A49">else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">            User user </span><span style="color:#D73A49">=</span><span style="color:#24292E"> person.</span><span style="color:#6F42C1">getUser</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (user </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">                return</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">            } </span><span style="color:#D73A49">else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">                Integer age </span><span style="color:#D73A49">=</span><span style="color:#24292E"> user.</span><span style="color:#6F42C1">getAge</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#D73A49">                return</span><span style="color:#24292E"> age </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#D73A49"> ?</span><span style="color:#005CC5"> null</span><span style="color:#D73A49"> :</span><span style="color:#24292E"> age;</span></span>
+<span class="line"><span style="color:#24292E">            }</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>写一个单元测试类 PersonConverterTest 测试一下，看看效果</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> PersonConverterTest</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Test</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> test</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#24292E">        Person person </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> Person</span><span style="color:#24292E">(</span><span style="color:#005CC5">1L</span><span style="color:#24292E">,</span><span style="color:#032F62">"zhige"</span><span style="color:#24292E">,</span><span style="color:#032F62">"zhige.me@gmail.com"</span><span style="color:#24292E">,</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> Date</span><span style="color:#24292E">(),</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> User</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">));</span></span>
+<span class="line"><span style="color:#24292E">        PersonDTO personDTO </span><span style="color:#D73A49">=</span><span style="color:#24292E"> PersonConverter.INSTANCE.</span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(person);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertNotNull</span><span style="color:#24292E">(personDTO);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getId</span><span style="color:#24292E">(), person.</span><span style="color:#6F42C1">getId</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">(), person.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirth</span><span style="color:#24292E">(), person.</span><span style="color:#6F42C1">getBirthday</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">        String format </span><span style="color:#D73A49">=</span><span style="color:#24292E"> DateFormatUtils.</span><span style="color:#6F42C1">format</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirth</span><span style="color:#24292E">(), </span><span style="color:#032F62">"yyyy-MM-dd HH:mm:ss"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirthDateFormat</span><span style="color:#24292E">(),format);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirthExpressionFormat</span><span style="color:#24292E">(),format);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">        List&lt;</span><span style="color:#D73A49">Person</span><span style="color:#24292E">&gt; people </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#24292E"> ArrayList&lt;&gt;();</span></span>
+<span class="line"><span style="color:#24292E">        people.</span><span style="color:#6F42C1">add</span><span style="color:#24292E">(person);</span></span>
+<span class="line"><span style="color:#24292E">        List&lt;</span><span style="color:#D73A49">PersonDTO</span><span style="color:#24292E">&gt; personDTOs </span><span style="color:#D73A49">=</span><span style="color:#24292E"> PersonConverter.INSTANCE.</span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(people);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertNotNull</span><span style="color:#24292E">(personDTOs);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p><a id="vfijB"></a></p>
+<h3 id="section-5">多对一</h3>
+<p>MapStruct 可以将几种类型的对象映射为另外一种类型，比如将多个 DO 对象转换为 DTO</p>
+<p>例子</p>
+<ul>
+<li>两个 DO 对象 Item 和 Sku，一个 DTO 对象 SkuDTO</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">NoArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> Item</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long id;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String title;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">NoArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> Sku</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long id;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String code;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Integer price;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">NoArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">AllArgsConstructor</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Data</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> SkuDTO</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long skuId;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String skuCode;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Integer skuPrice;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> Long itemId;</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> String itemName;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<ul>
+<li>创建 ItemConverter（映射）接口，MapStruct 就会自动实现该接口</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Mapper</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> interface</span><span style="color:#6F42C1"> ItemConverter</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">    ItemConverter INSTANCE </span><span style="color:#D73A49">=</span><span style="color:#24292E"> Mappers.</span><span style="color:#6F42C1">getMapper</span><span style="color:#24292E">(ItemConverter.class);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Mappings</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">            @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "sku.id"</span><span style="color:#24292E">,</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "skuId"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">            @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "sku.code"</span><span style="color:#24292E">,</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "skuCode"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">            @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "sku.price"</span><span style="color:#24292E">,</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "skuPrice"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">            @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "item.id"</span><span style="color:#24292E">,</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "itemId"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">            @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "item.title"</span><span style="color:#24292E">,</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "itemName"</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">    })</span></span>
+<span class="line"><span style="color:#24292E">    SkuDTO </span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(Item </span><span style="color:#E36209">item</span><span style="color:#24292E">, Sku </span><span style="color:#E36209">sku</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<ul>
+<li>创建测试类，将 Item 和 Sku 两个 DO对象，映射成一个 DTO 对象 SkuDTO</li>
+</ul>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> ItemConverterTest</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Test</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> test</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#24292E">        Item item </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> Item</span><span style="color:#24292E">(</span><span style="color:#005CC5">1L</span><span style="color:#24292E">, </span><span style="color:#032F62">"iPhone X"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">        Sku sku </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> Sku</span><span style="color:#24292E">(</span><span style="color:#005CC5">2L</span><span style="color:#24292E">, </span><span style="color:#032F62">"phone12345"</span><span style="color:#24292E">, </span><span style="color:#005CC5">1000000</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">        SkuDTO skuDTO </span><span style="color:#D73A49">=</span><span style="color:#24292E"> ItemConverter.INSTANCE.</span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(item, sku);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertNotNull</span><span style="color:#24292E">(skuDTO);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(skuDTO.</span><span style="color:#6F42C1">getSkuId</span><span style="color:#24292E">(),sku.</span><span style="color:#6F42C1">getId</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(skuDTO.</span><span style="color:#6F42C1">getSkuCode</span><span style="color:#24292E">(),sku.</span><span style="color:#6F42C1">getCode</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(skuDTO.</span><span style="color:#6F42C1">getSkuPrice</span><span style="color:#24292E">(),sku.</span><span style="color:#6F42C1">getPrice</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(skuDTO.</span><span style="color:#6F42C1">getItemId</span><span style="color:#24292E">(),item.</span><span style="color:#6F42C1">getId</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(skuDTO.</span><span style="color:#6F42C1">getItemName</span><span style="color:#24292E">(),item.</span><span style="color:#6F42C1">getTitle</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p><strong>可以添加自定义方法</strong></p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// 形式如下</span></span>
+<span class="line"><span style="color:#D73A49">default</span><span style="color:#24292E"> PersonDTO </span><span style="color:#6F42C1">personToPersonDTO</span><span style="color:#24292E">(Person person) {</span></span>
+<span class="line"><span style="color:#6A737D">    //hand-written mapping logic</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// 比如在 PersonConverter 里面加入如下</span></span>
+<span class="line"><span style="color:#D73A49">default</span><span style="color:#24292E"> Boolean </span><span style="color:#6F42C1">convert2Bool</span><span style="color:#24292E">(Integer value) {</span></span>
+<span class="line"><span style="color:#D73A49">    if</span><span style="color:#24292E"> (value </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#D73A49"> ||</span><span style="color:#24292E"> value </span><span style="color:#D73A49">&lt;</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> Boolean.FALSE;</span></span>
+<span class="line"><span style="color:#24292E">    } </span><span style="color:#D73A49">else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#24292E"> Boolean.TRUE;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">default</span><span style="color:#24292E"> Integer </span><span style="color:#6F42C1">convert2Int</span><span style="color:#24292E">(Boolean value) {</span></span>
+<span class="line"><span style="color:#D73A49">    if</span><span style="color:#24292E"> (value </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> null</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#005CC5"> null</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#D73A49">    if</span><span style="color:#24292E"> (Boolean.TRUE.</span><span style="color:#6F42C1">equals</span><span style="color:#24292E">(value)) {</span></span>
+<span class="line"><span style="color:#D73A49">        return</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#D73A49">    return</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"><span style="color:#6A737D">// 测试类 PersonConverterTest 加入</span></span>
+<span class="line"><span style="color:#6F42C1">assertTrue</span><span style="color:#24292E">(PersonConverter.INSTANCE.</span><span style="color:#6F42C1">convert2Bool</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">));</span></span>
+<span class="line"><span style="color:#6F42C1">assertEquals</span><span style="color:#24292E">((</span><span style="color:#D73A49">int</span><span style="color:#24292E">)PersonConverter.INSTANCE.</span><span style="color:#6F42C1">convert2Int</span><span style="color:#24292E">(</span><span style="color:#005CC5">true</span><span style="color:#24292E">),</span><span style="color:#005CC5">1</span><span style="color:#24292E">);</span></span></code></pre></div>
+<p>如果已经有了接收对象，更新目标对象</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// 比如在 PersonConverter 里面加入如下，@InheritConfiguration 用于继承刚才的配置</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">InheritConfiguration</span><span style="color:#24292E">(</span><span style="color:#005CC5">name</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "domain2dto"</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">void</span><span style="color:#6F42C1"> update</span><span style="color:#24292E">(Person person, @</span><span style="color:#D73A49">MappingTarget</span><span style="color:#24292E"> PersonDTO personDTO);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// 测试类 PersonConverterTest 加入如下</span></span>
+<span class="line"><span style="color:#24292E">Person person </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> Person</span><span style="color:#24292E">(</span><span style="color:#005CC5">1L</span><span style="color:#24292E">,</span><span style="color:#032F62">"zhige"</span><span style="color:#24292E">,</span><span style="color:#032F62">"zhige.me@gmail.com"</span><span style="color:#24292E">,</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> Date</span><span style="color:#24292E">(),</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> User</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">));</span></span>
+<span class="line"><span style="color:#24292E">PersonDTO personDTO </span><span style="color:#D73A49">=</span><span style="color:#24292E"> PersonConverter.INSTANCE.</span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(person);</span></span>
+<span class="line"><span style="color:#6F42C1">assertEquals</span><span style="color:#24292E">(</span><span style="color:#032F62">"zhige"</span><span style="color:#24292E">, personDTO.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">person.</span><span style="color:#6F42C1">setName</span><span style="color:#24292E">(</span><span style="color:#032F62">"xiaozhi"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">PersonConverter.INSTANCE.</span><span style="color:#6F42C1">update</span><span style="color:#24292E">(person, personDTO);</span></span>
+<span class="line"><span style="color:#6F42C1">assertEquals</span><span style="color:#24292E">(</span><span style="color:#032F62">"xiaozhi"</span><span style="color:#24292E">, personDTO.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">());</span></span></code></pre></div>
+<p><a id="tsPPr"></a></p>
+<h3 id="section-6">Spring 注入的方式</h3>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// 刚才一直写的例子是默认的方式</span></span>
+<span class="line"><span style="color:#24292E">PersonConverter INSTANCE </span><span style="color:#D73A49">=</span><span style="color:#24292E"> Mappers.</span><span style="color:#6F42C1">getMapper</span><span style="color:#24292E">(PersonConverter.class);</span></span></code></pre></div>
+<p>还有一种常用的方式，是和常用的框架 Spring 结合，在 @Mapper 后面加入 componentModel="spring"</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Mapper</span><span style="color:#24292E">(</span><span style="color:#005CC5">componentModel</span><span style="color:#D73A49">=</span><span style="color:#032F62">"spring"</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> interface</span><span style="color:#6F42C1"> PersonConverter</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Mappings</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthday"</span><span style="color:#24292E">, </span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birth"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthday"</span><span style="color:#24292E">, </span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthDateFormat"</span><span style="color:#24292E">, </span><span style="color:#005CC5">dateFormat</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "yyyy-MM-dd HH:mm:ss"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "birthExpressionFormat"</span><span style="color:#24292E">, </span><span style="color:#005CC5">expression</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "java(org.apache.commons.lang3.time.DateFormatUtils.format(person.getBirthday(),</span><span style="color:#005CC5">\"</span><span style="color:#032F62">yyyy-MM-dd HH:mm:ss</span><span style="color:#005CC5">\"</span><span style="color:#032F62">))"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">source</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "user.age"</span><span style="color:#24292E">, </span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "age"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#24292E">        @</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">(</span><span style="color:#005CC5">target</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "email"</span><span style="color:#24292E">, </span><span style="color:#005CC5">ignore</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> true</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">    })</span></span>
+<span class="line"><span style="color:#24292E">    PersonDTO </span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(Person </span><span style="color:#E36209">person</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span></code></pre></div>
+<p>这时候测试类改一下，我用的 spring boot 的形式</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">RunWith</span><span style="color:#24292E">(SpringRunner.class)</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">SpringBootTest</span><span style="color:#24292E">(</span><span style="color:#005CC5">classes</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> BaseTestConfiguration.class)</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> PersonConverterTest</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">    //这里把转换器装配进来</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Autowired</span></span>
+<span class="line"><span style="color:#D73A49">    private</span><span style="color:#24292E"> PersonConverter personConverter;</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Test</span></span>
+<span class="line"><span style="color:#D73A49">    public</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> test</span><span style="color:#24292E">() {</span></span>
+<span class="line"><span style="color:#24292E">        Person person </span><span style="color:#D73A49">=</span><span style="color:#D73A49"> new</span><span style="color:#6F42C1"> Person</span><span style="color:#24292E">(</span><span style="color:#005CC5">1L</span><span style="color:#24292E">,</span><span style="color:#032F62">"zhige"</span><span style="color:#24292E">,</span><span style="color:#032F62">"zhige.me@gmail.com"</span><span style="color:#24292E">,</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> Date</span><span style="color:#24292E">(),</span><span style="color:#D73A49">new</span><span style="color:#6F42C1"> User</span><span style="color:#24292E">(</span><span style="color:#005CC5">1</span><span style="color:#24292E">));</span></span>
+<span class="line"><span style="color:#24292E">        PersonDTO personDTO </span><span style="color:#D73A49">=</span><span style="color:#24292E"> personConverter.</span><span style="color:#6F42C1">domain2dto</span><span style="color:#24292E">(person);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">        assertNotNull</span><span style="color:#24292E">(personDTO);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getId</span><span style="color:#24292E">(), person.</span><span style="color:#6F42C1">getId</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">(), person.</span><span style="color:#6F42C1">getName</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirth</span><span style="color:#24292E">(), person.</span><span style="color:#6F42C1">getBirthday</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#24292E">        String format </span><span style="color:#D73A49">=</span><span style="color:#24292E"> DateFormatUtils.</span><span style="color:#6F42C1">format</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirth</span><span style="color:#24292E">(), </span><span style="color:#032F62">"yyyy-MM-dd HH:mm:ss"</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirthDateFormat</span><span style="color:#24292E">(),format);</span></span>
+<span class="line"><span style="color:#6F42C1">        assertEquals</span><span style="color:#24292E">(personDTO.</span><span style="color:#6F42C1">getBirthExpressionFormat</span><span style="color:#24292E">(),format);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p>我 test 路径下加入了一个配置类</p>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">EnableAutoConfiguration</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Configuration</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">ComponentScan</span></span>
+<span class="line"><span style="color:#D73A49">public</span><span style="color:#D73A49"> class</span><span style="color:#6F42C1"> BaseTestConfiguration</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre></div>
+<p><a id="hepx7"></a></p>
+<h3 id="section-7">MapStruct 注解的关键词</h3>
+<div class="code-example"><div class="code-toolbar"><span>java</span><button type="button" class="copy-code" aria-label="复制代码">复制代码</button></div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Mapper</span><span style="color:#24292E"> 只有在接口加上这个注解， MapStruct 才会去实现该接口</span></span>
+<span class="line"><span style="color:#24292E">    @</span><span style="color:#D73A49">Mapper</span><span style="color:#24292E"> 里有个 componentModel 属性，主要是指定实现类的类型，一般用到两个</span></span>
+<span class="line"><span style="color:#D73A49">    default</span><span style="color:#24292E">：默认，可以通过 Mappers.</span><span style="color:#6F42C1">getMapper</span><span style="color:#24292E">(Class) 方式获取实例对象</span></span>
+<span class="line"><span style="color:#24292E">    spring：在接口的实现类上自动添加注解 @</span><span style="color:#D73A49">Component</span><span style="color:#24292E">，可通过 @</span><span style="color:#D73A49">Autowired</span><span style="color:#24292E"> 方式注入</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Mapping</span><span style="color:#24292E">：属性映射，若源对象属性与目标对象名字一致，会自动映射对应属性</span></span>
+<span class="line"><span style="color:#24292E">    source：源属性</span></span>
+<span class="line"><span style="color:#24292E">    target：目标属性</span></span>
+<span class="line"><span style="color:#24292E">    dateFormat：String 到 Date 日期之间相互转换，通过 SimpleDateFormat，该值为 SimpleDateFormat的日期格式</span></span>
+<span class="line"><span style="color:#24292E">    ignore</span><span style="color:#D73A49">:</span><span style="color:#24292E"> 忽略这个字段</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">Mappings</span><span style="color:#24292E">：配置多个@</span><span style="color:#D73A49">Mapping</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">MappingTarget</span><span style="color:#24292E"> 用于更新已有对象</span></span>
+<span class="line"><span style="color:#24292E">@</span><span style="color:#D73A49">InheritConfiguration</span><span style="color:#24292E"> 用于继承配置</span></span>
+<span class="line"></span></code></pre></div>
+<p>本文只是写了一些常用的比较简单的一些功能，更详细的可以去阅读官方文档： <a href="http://mapstruct.org/documentation/stable/reference/html/">http://mapstruct.org/documentation/stable/reference/html/</a></p>
+<p>参考：<a href="https://blog.csdn.net/zhige_me/article/details/80699784">推荐一个 Java 实体映射工具 MapStruct</a></p>
+<p>强烈推荐：</p>
+<p><a href="https://www.cnblogs.com/DDgougou/p/12848625.html">属性映射工具——MapStruct（一）</a></p>
+<p><a href="https://www.cnblogs.com/DDgougou/p/13362788.html">属性映射工具——MapStruct（二）</a></p>
+<p><a href="https://www.cnblogs.com/DDgougou/p/13365277.html">属性映射工具——MapStruct（三）</a></p>
+<p><a href="https://www.cnblogs.com/DDgougou/p/13365281.html">属性映射工具——MapStruct（四）</a></p>
+<p><a href="https://www.cnblogs.com/DDgougou/p/13365290.html">属性映射工具——MapStruct（五）</a></p>
+</div><div class="article-end-mark" aria-label="本篇完"><span></span><i></i><span></span></div></article><nav class="article-pagination" aria-label="同分类文章"><a href="/article-library-site/tech/spring-security-notes/"><span>同分类 · 上一篇</span><strong>Spring Security 学习资料</strong></a><a href="/article-library-site/tech/mybatis-plus-auto-fill/" class="next-article"><span>同分类 · 下一篇</span><strong>MyBatis-Plus 自动填充字段</strong></a></nav></div></div></div><p class="copy-status visually-hidden" role="status" aria-live="polite"></p><dialog class="image-viewer" aria-label="查看文章配图"><div class="image-viewer-toolbar"><span>文章配图</span><button type="button" class="image-viewer-close" aria-label="关闭图片">关闭 <span aria-hidden="true">×</span></button></div><div class="image-viewer-body"><img alt=""></div><p class="image-viewer-caption"></p></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-body img`),n=e?.querySelector(`.image-viewer-caption`);if(e&&t&&n){let r=null;document.querySelectorAll(`.prose img`).forEach(i=>{let a=document.createElement(`button`);a.type=`button`,a.className=`article-image-button`,a.setAttribute(`aria-label`,`放大${i.alt||`文章配图`}`),i.replaceWith(a),a.append(i),a.addEventListener(`click`,()=>{r=a,t.src=i.src,t.alt=i.alt,n.textContent=i.alt,e.showModal(),document.documentElement.classList.add(`viewer-open`)})}),e.querySelector(`.image-viewer-close`)?.addEventListener(`click`,()=>e.close()),e.addEventListener(`click`,t=>{t.target===e&&e.close()}),e.addEventListener(`close`,()=>{document.documentElement.classList.remove(`viewer-open`),t.removeAttribute(`src`),r?.focus({preventScroll:!0})})}</script><script type="module">document.querySelectorAll(`.copy-code`).forEach(e=>{e.addEventListener(`click`,async()=>{let t=e.closest(`.code-example`)?.querySelector(`code`);if(!t)return;let n=document.querySelector(`.copy-status`);try{await navigator.clipboard.writeText(t.textContent||``),e.textContent=`已复制`,n&&(n.textContent=`代码已复制到剪贴板`),window.setTimeout(()=>{e.textContent=`复制代码`},1800)}catch{let r=document.createRange();r.selectNodeContents(t);let i=window.getSelection();i?.removeAllRanges(),i?.addRange(r),n&&(n.textContent=`代码已选中，请按 Ctrl+C 或使用系统复制菜单`),e.textContent=`已选中，请复制`}})});</script></main><footer class="site-footer wrap"><a href="/article-library-site/" class="footer-brand">阿雷 · 文字之间</a><span>把日子写下来，让平凡有回声。</span><a href="#main" class="back-top">回到顶部</a></footer><script type="module">var e=document.querySelector(`.reader-directory`),t=window.matchMedia(`(min-width: 1000px)`);e&&(e.open=t.matches,t.addEventListener(`change`,()=>{e.open=t.matches}));</script></body></html>
